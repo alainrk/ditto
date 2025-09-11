@@ -1,5 +1,5 @@
 CC = clang
-CFLAGS = -std=c99 -Wall -Wextra -Werror -g
+CFLAGS = -std=c99 -Wall -Wextra -Werror -pedantic -g
 # CFLAGS = -std=c99 -Wall -Wextra -Werror -g -O2 -fsanitize=address
 LDFLAGS = -lreadline
 SRC_DIR = src
