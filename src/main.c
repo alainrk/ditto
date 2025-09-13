@@ -38,6 +38,14 @@
 // Get cursor position (n command = Device Status Report, 6 is for Cursor Pos)
 #define GET_CURSOR "\x1b[6n"
 #define GET_CURSOR_SZ 4
+// SetMode (h) and ResetMode (l) set on/off term features or modes like cursor
+// visibility
+#define HIDE_CURSOR "\x1b[?25h"
+#define HIDE_CURSOR_SZ 6
+// Erase in line, it also takes param (0 [default] = right to cursor, 1 = left
+// to cursor, 2 = all line)
+#define ERASE_LINE_RIGHT "\x1b[K"
+#define ERASE_LINE_RIGHT_SZ 3
 
 #define ABUF_INIT {NULL, 0}
 
@@ -194,24 +202,32 @@ void abFree(AppendBuffer *ab) { free(ab->b); }
 
 /*** output ***/
 
-void editorDrawRows(void) {
+void editorDrawRows(AppendBuffer *ab) {
   int y;
   for (y = 0; y < E.screenrows; y++) {
-    write(STDOUT_FILENO, "~", 1);
+    abAppend(ab, "~", 1);
 
+    abAppend(ab, ERASE_LINE_RIGHT, ERASE_LINE_RIGHT_SZ);
     if (y < E.screenrows - 1) {
-      write(STDOUT_FILENO, "\r\n", 2);
+      abAppend(ab, "\r\n", 2);
     }
   }
 }
 
 void editorRefreshScreen(void) {
-  write(STDOUT_FILENO, CLEAR_SCREEN, CLEAR_SCREEN_SZ);
-  write(STDOUT_FILENO, REPOS_CURSOR, REPOS_CURSOR_SZ);
+  AppendBuffer ab = ABUF_INIT;
 
-  editorDrawRows();
+  // To avoid cursor flickering, hide the cursor before clearing the screen and
+  // showing it later again
+  abAppend(&ab, HIDE_CURSOR, HIDE_CURSOR_SZ);
+  abAppend(&ab, REPOS_CURSOR, REPOS_CURSOR_SZ);
 
-  write(STDOUT_FILENO, REPOS_CURSOR, REPOS_CURSOR_SZ);
+  editorDrawRows(&ab);
+
+  abAppend(&ab, REPOS_CURSOR, REPOS_CURSOR_SZ);
+
+  write(STDOUT_FILENO, ab.b, ab.len);
+  abFree(&ab);
 }
 
 /*** input ***/
