@@ -1,5 +1,6 @@
 #include <ctype.h>
 #include <errno.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/ioctl.h>
@@ -7,6 +8,8 @@
 #include <unistd.h>
 
 /*** defines ***/
+
+#define UNUSED(x) (void)(x);
 
 // Ctrl-() bitwises AND with 00011111 (0x1f, 31)
 // e.g.
@@ -31,12 +34,15 @@
 // Default is 1;1 (rows and cols start at 1, not 0)
 #define REPOS_CURSOR "\x1b[H"
 #define REPOS_CURSOR_SZ 3
+// Get cursor position (n command = Device Status Report, 6 is for Cursor Pos)
+#define GET_CURSOR "\x1b[6n"
+#define GET_CURSOR_SZ 4
 
 /*** data ***/
 
 typedef struct {
-  int screenrows;
-  int screencols;
+  uint16_t screenrows;
+  uint16_t screencols;
   struct termios orig_termios;
 } EditorConfig;
 
@@ -97,7 +103,7 @@ void enableRawMode(void) {
     die("tcsetattr");
 }
 
-char editReadKey(void) {
+char editorReadKey(void) {
   int nread;
   char c;
   while ((nread = read(STDIN_FILENO, &c, 1)) != 1) {
@@ -108,13 +114,51 @@ char editReadKey(void) {
   return c;
 }
 
-int getWindowSize(int *rows, int *cols) {
+int getCursorPosition(uint16_t *rows, uint16_t *cols) {
+  // Avoid unused rows, cols
+  UNUSED(rows);
+  UNUSED(cols);
+
+  char buf[32];
+  uint16_t i = 0;
+
+  if (write(STDOUT_FILENO, GET_CURSOR, GET_CURSOR_SZ) != GET_CURSOR_SZ)
+    return -1;
+
+  while (i < sizeof(buf) - 1) {
+    if (read(STDIN_FILENO, &buf[i], 1) != 1)
+      break;
+    if (buf[i] == 'R')
+      break;
+    i++;
+  }
+  buf[i] = '\0';
+
+  // Debug print to show the cursor position
+  // printf("\r\n&buf[1]: '%s'\r\n", &buf[1]);
+
+  if (buf[0] != '\x1b' || buf[1] != '[')
+    return -1;
+  if (sscanf(&buf[2], "%hd;%hd", rows, cols) != 2)
+    return -1;
+
+  return 0;
+}
+
+int getWindowSize(uint16_t *rows, uint16_t *cols) {
   struct winsize ws;
 
   // Get the size of the terminals on most systems
   // (Terminal Input Output Control Get WINdow SiZe)
+  // There is a fallback in case it would fail
   if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == -1 || ws.ws_col == 0) {
-    return -1;
+    // Position the cursor to the bottom right and get rows,cols
+    // Cursor forward (C), cursor down (B), 999 just to make sure to get to the
+    // end
+    if (write(STDOUT_FILENO, "\x1b[999C\x1b[999B", 12) != 12)
+      return -1;
+
+    return getCursorPosition(rows, cols);
   }
 
   *cols = ws.ws_col;
@@ -128,7 +172,11 @@ int getWindowSize(int *rows, int *cols) {
 void editorDrawRows(void) {
   int y;
   for (y = 0; y < E.screenrows; y++) {
-    write(STDOUT_FILENO, "~\r\n", 3);
+    write(STDOUT_FILENO, "~", 1);
+
+    if (y < E.screenrows - 1) {
+      write(STDOUT_FILENO, "\r\n", 2);
+    }
   }
 }
 
@@ -149,7 +197,7 @@ void initEditor(void) {
 }
 
 void editorProcessKeypress(void) {
-  char c = editReadKey();
+  char c = editorReadKey();
 
   switch (c) {
   case CTRL_KEY('q'):
