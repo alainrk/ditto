@@ -33,7 +33,11 @@
 
 /*** data ***/
 
-struct termios orig_termios;
+typedef struct {
+  struct termios orig_termios;
+} EditorConfig;
+
+EditorConfig E;
 
 void die(const char *s) {
   write(STDOUT_FILENO, CLEAR_SCREEN, CLEAR_SCREEN_SZ);
@@ -46,16 +50,16 @@ void die(const char *s) {
 /*** terminal ***/
 
 void disableRawMode(void) {
-  if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_termios) == -1)
+  if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &E.orig_termios) == -1)
     die("tcsetattr");
 }
 
 void enableRawMode(void) {
-  if (tcgetattr(STDIN_FILENO, &orig_termios) == -1)
+  if (tcgetattr(STDIN_FILENO, &E.orig_termios) == -1)
     die("tcgetattr");
   atexit(disableRawMode);
 
-  struct termios raw = orig_termios;
+  struct termios raw = E.orig_termios;
 
   // Disabling some Input flags:
   // - Break condition causing sigint
@@ -103,8 +107,19 @@ char editReadKey(void) {
 
 /*** output ***/
 
+void editorDrawRows(void) {
+  int y;
+  for (y = 0; y < 24; y++) {
+    write(STDOUT_FILENO, "~\r\n", 3);
+  }
+}
+
 void editorRefreshScreen(void) {
   write(STDOUT_FILENO, CLEAR_SCREEN, CLEAR_SCREEN_SZ);
+  write(STDOUT_FILENO, REPOS_CURSOR, REPOS_CURSOR_SZ);
+
+  editorDrawRows();
+
   write(STDOUT_FILENO, REPOS_CURSOR, REPOS_CURSOR_SZ);
 }
 
