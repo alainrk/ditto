@@ -5,6 +5,15 @@
 #include <termios.h>
 #include <unistd.h>
 
+/*** defines ***/
+
+// Ctrl-() bitwises AND with 00011111 (0x1f, 31)
+// e.g.
+//      b = 98
+//      ctrl-b = 2
+//      98 & 31 = 2
+#define CTRL_KEY(k) ((k) & 0x1f)
+
 /*** data ***/
 
 struct termios orig_termios;
@@ -75,7 +84,9 @@ int main(void) {
     } else {
       printf("%d ('%c')\r\n", c, c);
     }
-    if (c == 'q')
+
+    // Ctrl-q to exit
+    if (c == CTRL_KEY('q'))
       break;
   }
 
