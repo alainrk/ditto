@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/ioctl.h>
 #include <termios.h>
 #include <unistd.h>
@@ -38,6 +39,8 @@
 #define GET_CURSOR "\x1b[6n"
 #define GET_CURSOR_SZ 4
 
+#define ABUF_INIT {NULL, 0}
+
 /*** data ***/
 
 typedef struct {
@@ -47,6 +50,13 @@ typedef struct {
 } EditorConfig;
 
 EditorConfig E;
+
+typedef struct abuf {
+  char *b;
+  uint32_t len;
+} AppendBuffer;
+
+/*** util ***/
 
 void die(const char *s) {
   write(STDOUT_FILENO, CLEAR_SCREEN, CLEAR_SCREEN_SZ);
@@ -166,6 +176,21 @@ int getWindowSize(uint16_t *rows, uint16_t *cols) {
 
   return 0;
 }
+
+/*** append buffer ***/
+
+void abAppend(AppendBuffer *ab, const char *s, uint32_t len) {
+  char *new = realloc(ab->b, ab->len + len);
+
+  if (new == NULL)
+    die("realloc");
+
+  memcpy(&new[ab->len], s, len);
+  ab->b = new;
+  ab->len += len;
+}
+
+void abFree(AppendBuffer *ab) { free(ab->b); }
 
 /*** output ***/
 
