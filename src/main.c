@@ -14,17 +14,31 @@
 //      98 & 31 = 2
 #define CTRL_KEY(k) ((k) & 0x1f)
 
-// Clear screen -> Escape (0x1b) + [2J
-// |++++|++++|++++|++++|
-//  \x1b  [    2    J
+// Clear screen escape sequence:
+//
+// |++++++++|++++++++|++++++++|++++++++|
+//    \x1b      [         2        J
+//   Escape  StartEsc  Screen   Erase
+//
+// VT100 Escape Sequences (widely supported by terminals):
+// - 0J Clear from cursor position to end screen
+// - 1J Clear up to cursor position
+// - 2J Clear full screen
 #define CLEAR_SCREEN "\x1b[2J"
 #define CLEAR_SCREEN_SZ 4
+// Clear screen takes 2 arguments [RowNo;ColNo] e.g. <esc>[12;40H
+// Default is 1;1 (rows and cols start at 1, not 0)
+#define REPOS_CURSOR "\x1b[H"
+#define REPOS_CURSOR_SZ 3
 
 /*** data ***/
 
 struct termios orig_termios;
 
 void die(const char *s) {
+  write(STDOUT_FILENO, CLEAR_SCREEN, CLEAR_SCREEN_SZ);
+  write(STDOUT_FILENO, REPOS_CURSOR, REPOS_CURSOR_SZ);
+
   perror(s);
   exit(1);
 }
@@ -91,6 +105,7 @@ char editReadKey(void) {
 
 void editorRefreshScreen(void) {
   write(STDOUT_FILENO, CLEAR_SCREEN, CLEAR_SCREEN_SZ);
+  write(STDOUT_FILENO, REPOS_CURSOR, REPOS_CURSOR_SZ);
 }
 
 /*** input ***/
@@ -100,6 +115,8 @@ void editorProcessKeypress(void) {
 
   switch (c) {
   case CTRL_KEY('q'):
+    write(STDOUT_FILENO, CLEAR_SCREEN, CLEAR_SCREEN_SZ);
+    write(STDOUT_FILENO, REPOS_CURSOR, REPOS_CURSOR_SZ);
     exit(0);
     break;
   }
