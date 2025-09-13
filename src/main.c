@@ -2,6 +2,7 @@
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/ioctl.h>
 #include <termios.h>
 #include <unistd.h>
 
@@ -34,6 +35,8 @@
 /*** data ***/
 
 typedef struct {
+  int screenrows;
+  int screencols;
   struct termios orig_termios;
 } EditorConfig;
 
@@ -105,11 +108,26 @@ char editReadKey(void) {
   return c;
 }
 
+int getWindowSize(int *rows, int *cols) {
+  struct winsize ws;
+
+  // Get the size of the terminals on most systems
+  // (Terminal Input Output Control Get WINdow SiZe)
+  if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == -1 || ws.ws_col == 0) {
+    return -1;
+  }
+
+  *cols = ws.ws_col;
+  *rows = ws.ws_row;
+
+  return 0;
+}
+
 /*** output ***/
 
 void editorDrawRows(void) {
   int y;
-  for (y = 0; y < 24; y++) {
+  for (y = 0; y < E.screenrows; y++) {
     write(STDOUT_FILENO, "~\r\n", 3);
   }
 }
@@ -124,6 +142,11 @@ void editorRefreshScreen(void) {
 }
 
 /*** input ***/
+
+void initEditor(void) {
+  if (getWindowSize(&E.screenrows, &E.screencols) == -1)
+    die("getWindowSize");
+}
 
 void editorProcessKeypress(void) {
   char c = editReadKey();
@@ -141,6 +164,7 @@ void editorProcessKeypress(void) {
 
 int main(void) {
   enableRawMode();
+  initEditor();
 
   while (1) {
     editorRefreshScreen();
