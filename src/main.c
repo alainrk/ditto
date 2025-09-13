@@ -14,6 +14,12 @@
 //      98 & 31 = 2
 #define CTRL_KEY(k) ((k) & 0x1f)
 
+// Clear screen -> Escape (0x1b) + [2J
+// |++++|++++|++++|++++|
+//  \x1b  [    2    J
+#define CLEAR_SCREEN "\x1b[2J"
+#define CLEAR_SCREEN_SZ 4
+
 /*** data ***/
 
 struct termios orig_termios;
@@ -70,24 +76,43 @@ void enableRawMode(void) {
     die("tcsetattr");
 }
 
+char editReadKey(void) {
+  int nread;
+  char c;
+  while ((nread = read(STDIN_FILENO, &c, 1)) != 1) {
+    if (nread == -1 && errno != EAGAIN)
+      die("read");
+  }
+
+  return c;
+}
+
+/*** output ***/
+
+void editorRefreshScreen(void) {
+  write(STDOUT_FILENO, CLEAR_SCREEN, CLEAR_SCREEN_SZ);
+}
+
+/*** input ***/
+
+void editorProcessKeypress(void) {
+  char c = editReadKey();
+
+  switch (c) {
+  case CTRL_KEY('q'):
+    exit(0);
+    break;
+  }
+}
+
 /*** init ***/
 
 int main(void) {
   enableRawMode();
 
   while (1) {
-    char c = '\0';
-    if (read(STDIN_FILENO, &c, 1) == -1 && errno != EAGAIN)
-      die("read");
-    if (iscntrl(c)) {
-      printf("%d\r\n", c);
-    } else {
-      printf("%d ('%c')\r\n", c, c);
-    }
-
-    // Ctrl-q to exit
-    if (c == CTRL_KEY('q'))
-      break;
+    editorRefreshScreen();
+    editorProcessKeypress();
   }
 
   return 0;
