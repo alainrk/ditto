@@ -283,13 +283,7 @@ void initEditor(DLogger *l) {
   E.cy = 0;
   E.logger = l;
 
-  FILE *f = fopen("/tmp/dittolog.txt", "a");
-  if (f == NULL)
-    die("fopen");
-
   dlog_info(E.logger, "Welcome to Ditto Editor!");
-  dlog_error(E.logger, "Welcome to Ditto Editor ERROR!");
-  exit(0);
 
   if (getWindowSize(&E.screenrows, &E.screencols) == -1)
     die("getWindowSize");
@@ -298,7 +292,11 @@ void initEditor(DLogger *l) {
 }
 
 int main(void) {
-  DLogger *l = dlog_init(DLOG_LEVEL_DEBUG);
+  FILE *f = fopen("/tmp/dittolog.txt", "a");
+  if (f == NULL)
+    die("fopen");
+  DLogger *l = dlog_initf(f, DLOG_LEVEL_INFO);
+
   initEditor(l);
 
   while (1) {
