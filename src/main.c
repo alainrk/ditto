@@ -1,14 +1,19 @@
 #include <ctype.h>
 #include <errno.h>
+#include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
 #include <termios.h>
+#include <time.h>
 #include <unistd.h>
 
 /*** defines ***/
+
+#define DITTO_VERSION "v0.0.0"
+#define ENABLE_LOG
 
 #define UNUSED(x) (void)(x);
 
@@ -52,8 +57,14 @@
 /*** data ***/
 
 typedef struct {
-  uint16_t screenrows;
-  uint16_t screencols;
+  // Cursor position
+  uint16_t cx, cy;
+  // Screen size
+  uint16_t screenrows, screencols;
+  // Log file
+  FILE *logfile;
+  int logfd;
+  // Terminal status
   struct termios orig_termios;
 } EditorConfig;
 
@@ -72,6 +83,21 @@ void die(const char *s) {
 
   perror(s);
   exit(1);
+}
+
+void dlog(const char *format, ...) {
+  va_list args;
+  va_start(args, format);
+
+  time_t now = time(NULL);
+  struct tm *tm = localtime(&now);
+  char timestr[64];
+  strftime(timestr, sizeof(timestr), "%Y-%m-%d %H:%M:%S", tm);
+  fprintf(E.logfile, "%s - ", timestr);
+  vfprintf(E.logfile, format, args);
+  fprintf(E.logfile, "\n");
+
+  va_end(args);
 }
 
 /*** terminal ***/
@@ -207,6 +233,16 @@ void editorDrawRows(AppendBuffer *ab) {
   for (y = 0; y < E.screenrows; y++) {
     abAppend(ab, "~", 1);
 
+    if (y == E.screenrows / 2) {
+      char wlc[20];
+      int l = snprintf(wlc, sizeof(wlc), "Ditto -- %s", DITTO_VERSION);
+      int pad = (E.screencols - l) / 2;
+      char line[E.screencols + 1];
+      memset(line, ' ', pad);
+      memcpy(line + pad, wlc, l);
+      abAppend(ab, line, pad + l);
+    }
+
     abAppend(ab, ERASE_LINE_RIGHT, ERASE_LINE_RIGHT_SZ);
     if (y < E.screenrows - 1) {
       abAppend(ab, "\r\n", 2);
@@ -224,6 +260,15 @@ void editorRefreshScreen(void) {
 
   editorDrawRows(&ab);
 
+  char buf[32];
+  snprintf(buf, sizeof(buf), "\x1b[%hu;%huH", E.cy + 1, E.cx + 1);
+
+#ifdef ENABLE_LOG
+  dlog("%hu;%hu", E.cy + 1, E.cx + 1);
+#endif
+
+  abAppend(&ab, buf, strlen(buf));
+
   abAppend(&ab, REPOS_CURSOR, REPOS_CURSOR_SZ);
 
   write(STDOUT_FILENO, ab.b, ab.len);
@@ -232,9 +277,27 @@ void editorRefreshScreen(void) {
 
 /*** input ***/
 
+void destroyEditor(void) {
+#ifdef ENABLE_LOG
+  fclose(E.logfile);
+#endif
+}
+
 void initEditor(void) {
+  E.cx = 10;
+  E.cy = 20;
+
+#ifdef ENABLE_LOG
+  E.logfile = fopen("/tmp/dittolog.txt", "a");
+  if (E.logfile == NULL)
+    die("fopen");
+  dlog("Welcome to Ditto Editor!");
+#endif
+
   if (getWindowSize(&E.screenrows, &E.screencols) == -1)
     die("getWindowSize");
+
+  atexit(destroyEditor);
 }
 
 void editorProcessKeypress(void) {
