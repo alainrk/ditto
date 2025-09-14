@@ -260,7 +260,22 @@ void editorRefreshScreen(void) {
 
 /*** input ***/
 
-// void editorMoveCursor(char key) {}
+void editorMoveCursor(char key) {
+  switch (key) {
+  case 'j':
+    E.cy++;
+    break;
+  case 'k':
+    E.cy--;
+    break;
+  case 'h':
+    E.cx--;
+    break;
+  case 'l':
+    E.cx++;
+    break;
+  }
+}
 
 void destroyEditor(void) { dlog_close(E.logger); }
 
@@ -273,15 +288,21 @@ void editorProcessKeypress(void) {
     write(STDOUT_FILENO, REPOS_CURSOR, REPOS_CURSOR_SZ);
     exit(0);
     break;
+  case 'j':
+  case 'k':
+  case 'h':
+  case 'l':
+    editorMoveCursor(c);
+    break;
   }
 }
 
 /*** init ***/
 
 void initEditor(DLogger *l) {
+  E.logger = l;
   E.cx = 0;
   E.cy = 0;
-  E.logger = l;
 
   dlog_info(E.logger, "Welcome to Ditto Editor!");
 
@@ -295,7 +316,7 @@ int main(void) {
   FILE *f = fopen("/tmp/dittolog.txt", "a");
   if (f == NULL)
     die("fopen");
-  DLogger *l = dlog_initf(f, DLOG_LEVEL_INFO);
+  DLogger *l = dlog_initf(f, DLOG_LEVEL_DEBUG);
 
   initEditor(l);
 
