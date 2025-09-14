@@ -10,10 +10,11 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "dlogger.h"
+
 /*** defines ***/
 
 #define DITTO_VERSION "v0.0.0"
-#define ENABLE_LOG
 
 #define UNUSED(x) (void)(x);
 
@@ -44,9 +45,11 @@
 #define GET_CURSOR "\x1b[6n"
 #define GET_CURSOR_SZ 4
 // SetMode (h) and ResetMode (l) set on/off term features or modes like cursor
-// visibility
-#define HIDE_CURSOR "\x1b[?25h"
+// visibility, the number is the feature (25 = show/hine)
+#define HIDE_CURSOR "\x1b[?25l"
 #define HIDE_CURSOR_SZ 6
+#define SHOW_CURSOR "\x1b[?25h"
+#define SHOW_CURSOR_SZ 6
 // Erase in line, it also takes param (0 [default] = right to cursor, 1 = left
 // to cursor, 2 = all line)
 #define ERASE_LINE_RIGHT "\x1b[K"
@@ -57,13 +60,11 @@
 /*** data ***/
 
 typedef struct {
+  DLogger *logger;
   // Cursor position
   uint16_t cx, cy;
   // Screen size
   uint16_t screenrows, screencols;
-  // Log file
-  FILE *logfile;
-  int logfd;
   // Terminal status
   struct termios orig_termios;
 } EditorConfig;
@@ -83,21 +84,6 @@ void die(const char *s) {
 
   perror(s);
   exit(1);
-}
-
-void dlog(const char *format, ...) {
-  va_list args;
-  va_start(args, format);
-
-  time_t now = time(NULL);
-  struct tm *tm = localtime(&now);
-  char timestr[64];
-  strftime(timestr, sizeof(timestr), "%Y-%m-%d %H:%M:%S", tm);
-  fprintf(E.logfile, "%s - ", timestr);
-  vfprintf(E.logfile, format, args);
-  fprintf(E.logfile, "\n");
-
-  va_end(args);
 }
 
 /*** terminal ***/
@@ -261,15 +247,12 @@ void editorRefreshScreen(void) {
   editorDrawRows(&ab);
 
   char buf[32];
-  snprintf(buf, sizeof(buf), "\x1b[%hu;%huH", E.cy + 1, E.cx + 1);
-
-#ifdef ENABLE_LOG
-  dlog("%hu;%hu", E.cy + 1, E.cx + 1);
-#endif
-
+  snprintf(buf, sizeof(buf), "\x1b[%d;%dH", E.cy + 1, E.cx + 1);
   abAppend(&ab, buf, strlen(buf));
 
-  abAppend(&ab, REPOS_CURSOR, REPOS_CURSOR_SZ);
+  dlog_debug(E.logger, "%hu;%hu", E.cy + 1, E.cx + 1);
+
+  abAppend(&ab, SHOW_CURSOR, SHOW_CURSOR_SZ);
 
   write(STDOUT_FILENO, ab.b, ab.len);
   abFree(&ab);
@@ -277,28 +260,9 @@ void editorRefreshScreen(void) {
 
 /*** input ***/
 
-void destroyEditor(void) {
-#ifdef ENABLE_LOG
-  fclose(E.logfile);
-#endif
-}
+// void editorMoveCursor(char key) {}
 
-void initEditor(void) {
-  E.cx = 10;
-  E.cy = 20;
-
-#ifdef ENABLE_LOG
-  E.logfile = fopen("/tmp/dittolog.txt", "a");
-  if (E.logfile == NULL)
-    die("fopen");
-  dlog("Welcome to Ditto Editor!");
-#endif
-
-  if (getWindowSize(&E.screenrows, &E.screencols) == -1)
-    die("getWindowSize");
-
-  atexit(destroyEditor);
-}
+void destroyEditor(void) { dlog_close(E.logger); }
 
 void editorProcessKeypress(void) {
   char c = editorReadKey();
@@ -314,9 +278,28 @@ void editorProcessKeypress(void) {
 
 /*** init ***/
 
+void initEditor(DLogger *l) {
+  E.cx = 0;
+  E.cy = 0;
+  E.logger = l;
+
+  FILE *f = fopen("/tmp/dittolog.txt", "a");
+  if (f == NULL)
+    die("fopen");
+
+  dlog_info(E.logger, "Welcome to Ditto Editor!");
+  dlog_error(E.logger, "Welcome to Ditto Editor ERROR!");
+  exit(0);
+
+  if (getWindowSize(&E.screenrows, &E.screencols) == -1)
+    die("getWindowSize");
+
+  atexit(destroyEditor);
+}
+
 int main(void) {
-  enableRawMode();
-  initEditor();
+  DLogger *l = dlog_init(DLOG_LEVEL_DEBUG);
+  initEditor(l);
 
   while (1) {
     editorRefreshScreen();
