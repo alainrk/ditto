@@ -14,10 +14,7 @@ DLogger *dlog_initf(FILE *f, int level) {
 
 DLogger *dlog_init(int level) { return dlog_initf(stdout, level); }
 
-void _log(DLogger *l, const char *format, ...) {
-  va_list args;
-  va_start(args, format);
-
+void _log(DLogger *l, const char *format, va_list args) {
   time_t now = time(NULL);
   struct tm *tm = localtime(&now);
   char timestr[64];
@@ -27,33 +24,53 @@ void _log(DLogger *l, const char *format, ...) {
   vfprintf(l->f, format, args);
   fprintf(l->f, "\n");
   fflush(l->f);
-  va_end(args);
 }
 
 void dlog_error(DLogger *dlog, const char *format, ...) {
-  if (dlog->level >= DLOG_LEVEL_ERROR)
-    _log(dlog, format);
+  if (dlog->level >= DLOG_LEVEL_ERROR) {
+    va_list args;
+    va_start(args, format);
+    _log(dlog, format, args);
+    va_end(args);
+  }
 }
 
 void dlog_warn(DLogger *dlog, const char *format, ...) {
-  if (dlog->level >= DLOG_LEVEL_WARN)
-    _log(dlog, format);
+  if (dlog->level >= DLOG_LEVEL_WARN) {
+    va_list args;
+    va_start(args, format);
+    _log(dlog, format, args);
+    va_end(args);
+  }
 }
 
 void dlog_info(DLogger *dlog, const char *format, ...) {
-  if (dlog->level >= DLOG_LEVEL_INFO)
-    _log(dlog, format);
+  if (dlog->level >= DLOG_LEVEL_INFO) {
+    va_list args;
+    va_start(args, format);
+    _log(dlog, format, args);
+    va_end(args);
+  }
 }
 
 void dlog_debug(DLogger *dlog, const char *format, ...) {
-  if (dlog->level >= DLOG_LEVEL_DEBUG)
-    _log(dlog, format);
+  if (dlog->level >= DLOG_LEVEL_DEBUG) {
+    va_list args;
+    va_start(args, format);
+    _log(dlog, format, args);
+    va_end(args);
+  }
 }
 
 void dlog_trace(DLogger *dlog, const char *format, ...) {
-  if (dlog->level >= DLOG_LEVEL_TRACE)
-    _log(dlog, format);
+  if (dlog->level >= DLOG_LEVEL_TRACE) {
+    va_list args;
+    va_start(args, format);
+    _log(dlog, format, args);
+    va_end(args);
+  }
 }
+
 
 void dlog_close(DLogger *dlog) {
   fclose(dlog->f);
