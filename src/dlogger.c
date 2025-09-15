@@ -15,21 +15,19 @@ DLogger *dlog_initf(FILE *f, int level) {
 DLogger *dlog_init(int level) { return dlog_initf(stdout, level); }
 
 void _log(DLogger *l, const char *format, ...) {
+  va_list args;
+  va_start(args, format);
+
   time_t now = time(NULL);
   struct tm *tm = localtime(&now);
   char timestr[64];
   strftime(timestr, sizeof(timestr), "%Y-%m-%d %H:%M:%S", tm);
 
   fprintf(l->f, "%s - ", timestr);
-
-  va_list args;
-  va_start(args, format);
   vfprintf(l->f, format, args);
-  va_end(args);
-
   fprintf(l->f, "\n");
-
   fflush(l->f);
+  va_end(args);
 }
 
 void dlog_error(DLogger *dlog, const char *format, ...) {

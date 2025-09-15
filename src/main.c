@@ -121,7 +121,7 @@ void enableRawMode(void) {
 
   // Disabling some Control flags:
   // - Old stuff
-  raw.c_cflag &= ~(CS8);
+  raw.c_cflag |= (CS8);
 
   // Setting some Control Characters:
   // read() witll return as soon as any byte is read
@@ -281,6 +281,7 @@ void destroyEditor(void) { dlog_close(E.logger); }
 
 void editorProcessKeypress(void) {
   char c = editorReadKey();
+  dlog_debug(E.logger, "Pressed '%c'", c);
 
   switch (c) {
   case CTRL_KEY('q'):
@@ -304,7 +305,7 @@ void initEditor(DLogger *l) {
   E.cx = 0;
   E.cy = 0;
 
-  dlog_info(E.logger, "Welcome to Ditto Editor!");
+  dlog_info(E.logger, "Welcome to Ditto Editor %s!", DITTO_VERSION);
 
   if (getWindowSize(&E.screenrows, &E.screencols) == -1)
     die("getWindowSize");
