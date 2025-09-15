@@ -305,6 +305,8 @@ void initEditor(DLogger *l) {
   E.cx = 0;
   E.cy = 0;
 
+  enableRawMode();
+
   dlog_info(E.logger, "Welcome to Ditto Editor %s!", DITTO_VERSION);
 
   if (getWindowSize(&E.screenrows, &E.screencols) == -1)
