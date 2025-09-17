@@ -9,7 +9,7 @@
 #define DLOG_LEVEL_DEBUG 4
 #define DLOG_LEVEL_TRACE 5
 
-typedef struct DLogger {
+typedef struct {
   FILE *f;
   int level;
 } DLogger;

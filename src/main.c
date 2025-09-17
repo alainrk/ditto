@@ -57,6 +57,15 @@
 
 #define ABUF_INIT {NULL, 0}
 
+/*** enum ***/
+
+enum editorKey {
+  CURSOR_UP = 'k',
+  CURSOR_DOWN = 'j',
+  CURSOR_LEFT = 'h',
+  CURSOR_RIGHT = 'l'
+};
+
 /*** data ***/
 
 typedef struct {
@@ -71,7 +80,7 @@ typedef struct {
 
 EditorConfig E;
 
-typedef struct abuf {
+typedef struct {
   char *b;
   uint32_t len;
 } AppendBuffer;
@@ -135,10 +144,45 @@ void enableRawMode(void) {
 
 char editorReadKey(void) {
   int nread;
-  char c;
+  char c = '\0';
+
   while ((nread = read(STDIN_FILENO, &c, 1)) != 1) {
     if (nread == -1 && errno != EAGAIN)
       die("read");
+  }
+
+  // Escape-starting keys (e.g. arrows), need to read multiple bytes starting
+  // from that
+  if (c == '\x1b') {
+    char seq[3];
+
+    // By default just return the escape char, if nothing else avaible to be
+    // read
+    if (read(STDIN_FILENO, &seq[0], 1) != 1)
+      return '\x1b';
+    if (read(STDIN_FILENO, &seq[1], 1) != 1)
+      return '\x1b';
+
+    // If Start Escape char '['
+    if (seq[0] == '[') {
+      switch (seq[1]) {
+      // Up Arrow
+      case 'A':
+        return CURSOR_UP;
+      // Down Arrow
+      case 'B':
+        return CURSOR_DOWN;
+      // Right Arrow
+      case 'C':
+        return CURSOR_RIGHT;
+      // Left Arrow
+      case 'D':
+        return CURSOR_LEFT;
+      }
+    }
+
+    // By default just return the escape char
+    return '\x1b';
   }
 
   return c;

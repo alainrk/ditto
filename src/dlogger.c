@@ -71,7 +71,6 @@ void dlog_trace(DLogger *dlog, const char *format, ...) {
   }
 }
 
-
 void dlog_close(DLogger *dlog) {
   fclose(dlog->f);
   free(dlog);
