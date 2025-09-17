@@ -313,15 +313,30 @@ int getWindowSize(uint16_t *rows, uint16_t *cols) {
 
 /*** file i/o ***/
 
-void editorOpen(void) {
-  char *line = "Hello, world!";
-  ssize_t linelen = 13;
+void editorOpen(const char *filename) {
+  FILE *f = fopen(filename, "r");
+  if (!f)
+    die("fopen");
 
-  E.row.size = linelen;
-  E.row.chars = malloc(linelen + 1);
-  memcpy(E.row.chars, line, linelen);
-  E.row.chars[linelen] = '\0';
-  E.numrows = 1;
+  char *line = NULL;
+  size_t linecap = 0;
+  ssize_t linelen;
+
+  linelen = getline(&line, &linecap, f);
+  if (linelen != -1) {
+    while (linelen > 0 &&
+           (line[linelen - 1] == '\n' || line[linelen - 1] == '\r'))
+      linelen--;
+
+    E.row.size = linelen;
+    E.row.chars = malloc(linelen + 1);
+    memcpy(E.row.chars, line, linelen);
+    E.row.chars[linelen] = '\0';
+    E.numrows = 1;
+  }
+
+  free(line);
+  fclose(f);
 }
 
 /*** append buffer ***/
@@ -495,14 +510,19 @@ void initEditor(DLogger *l) {
   atexit(destroyEditor);
 }
 
-int main(void) {
+/*** main ***/
+
+int main(int argc, char *argv[]) {
   FILE *f = fopen("/tmp/dittolog.txt", "a");
   if (f == NULL)
     die("fopen");
   DLogger *l = dlog_initf(f, DLOG_LEVEL_DEBUG);
 
   initEditor(l);
-  editorOpen();
+
+  if (argc >= 2) {
+    editorOpen(argv[1]);
+  }
 
   while (1) {
     editorRefreshScreen();
