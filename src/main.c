@@ -59,12 +59,8 @@
 
 /*** enum ***/
 
-enum editorKey {
-  CURSOR_UP = 'k',
-  CURSOR_DOWN = 'j',
-  CURSOR_LEFT = 'h',
-  CURSOR_RIGHT = 'l'
-};
+enum arrowKeys { ARROW_UP = 1000, ARROW_DOWN, ARROW_LEFT, ARROW_RIGHT };
+enum moveKeys { KEY_J = 'j', KEY_K = 'k', KEY_H = 'h', KEY_L = 'l' };
 
 /*** data ***/
 
@@ -142,7 +138,7 @@ void enableRawMode(void) {
     die("tcsetattr");
 }
 
-char editorReadKey(void) {
+int editorReadKey(void) {
   int nread;
   char c = '\0';
 
@@ -168,16 +164,16 @@ char editorReadKey(void) {
       switch (seq[1]) {
       // Up Arrow
       case 'A':
-        return CURSOR_UP;
+        return ARROW_UP;
       // Down Arrow
       case 'B':
-        return CURSOR_DOWN;
+        return ARROW_DOWN;
       // Right Arrow
       case 'C':
-        return CURSOR_RIGHT;
+        return ARROW_RIGHT;
       // Left Arrow
       case 'D':
-        return CURSOR_LEFT;
+        return ARROW_LEFT;
       }
     }
 
@@ -304,18 +300,22 @@ void editorRefreshScreen(void) {
 
 /*** input ***/
 
-void editorMoveCursor(char key) {
+void editorMoveCursor(int key) {
   switch (key) {
-  case 'j':
+  case ARROW_DOWN:
+  case KEY_J:
     E.cy++;
     break;
-  case 'k':
+  case ARROW_UP:
+  case KEY_K:
     E.cy--;
     break;
-  case 'h':
+  case ARROW_LEFT:
+  case KEY_H:
     E.cx--;
     break;
-  case 'l':
+  case ARROW_RIGHT:
+  case KEY_L:
     E.cx++;
     break;
   }
@@ -324,7 +324,7 @@ void editorMoveCursor(char key) {
 void destroyEditor(void) { dlog_close(E.logger); }
 
 void editorProcessKeypress(void) {
-  char c = editorReadKey();
+  int c = editorReadKey();
   dlog_debug(E.logger, "Pressed '%c'", c);
 
   switch (c) {
@@ -333,10 +333,14 @@ void editorProcessKeypress(void) {
     write(STDOUT_FILENO, REPOS_CURSOR, REPOS_CURSOR_SZ);
     exit(0);
     break;
-  case 'j':
-  case 'k':
-  case 'h':
-  case 'l':
+  case ARROW_DOWN:
+  case ARROW_UP:
+  case ARROW_LEFT:
+  case ARROW_RIGHT:
+  case KEY_J:
+  case KEY_K:
+  case KEY_H:
+  case KEY_L:
     editorMoveCursor(c);
     break;
   }
