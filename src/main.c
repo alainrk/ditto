@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
+#include <sys/types.h>
 #include <termios.h>
 #include <time.h>
 #include <unistd.h>
@@ -90,6 +91,11 @@ enum moveKeys {
 /*** data ***/
 
 typedef struct {
+  uint32_t size;
+  char *chars;
+} Row;
+
+typedef struct {
   DLogger *logger;
   // Cursor position
   uint16_t cx, cy;
@@ -97,6 +103,10 @@ typedef struct {
   uint16_t screenrows, screencols;
   // Terminal status
   struct termios orig_termios;
+  // Number of rows
+  uint32_t numrows;
+  // Current row
+  Row row;
 } EditorConfig;
 
 EditorConfig E;
@@ -301,6 +311,19 @@ int getWindowSize(uint16_t *rows, uint16_t *cols) {
   return 0;
 }
 
+/*** file i/o ***/
+
+void editorOpen(void) {
+  char *line = "Hello, world!";
+  ssize_t linelen = 13;
+
+  E.row.size = linelen;
+  E.row.chars = malloc(linelen + 1);
+  memcpy(E.row.chars, line, linelen);
+  E.row.chars[linelen] = '\0';
+  E.numrows = 1;
+}
+
 /*** append buffer ***/
 
 void abAppend(AppendBuffer *ab, const char *s, uint32_t len) {
@@ -321,18 +344,29 @@ void abFree(AppendBuffer *ab) { free(ab->b); }
 void editorDrawRows(AppendBuffer *ab) {
   int y;
   for (y = 0; y < E.screenrows; y++) {
-    abAppend(ab, "~", 1);
+    // If we are at the end of the file
+    if (y >= (int)E.numrows) {
+      abAppend(ab, "~", 1);
 
-    if (y == E.screenrows / 2) {
-      char wlc[20];
-      int l = snprintf(wlc, sizeof(wlc), "Ditto -- %s", DITTO_VERSION);
-      int pad = (E.screencols - l) / 2;
-      char line[E.screencols + 1];
-      memset(line, ' ', pad);
-      memcpy(line + pad, wlc, l);
-      abAppend(ab, line, pad + l);
+      // Welcome message if no content or no file loaded
+      if (E.numrows == 0 && y == E.screenrows / 2) {
+        char wlc[20];
+        int l = snprintf(wlc, sizeof(wlc), "Ditto -- %s", DITTO_VERSION);
+        int pad = (E.screencols - l) / 2;
+        char line[E.screencols + 1];
+        memset(line, ' ', pad);
+        memcpy(line + pad, wlc, l);
+        abAppend(ab, line, pad + l);
+      }
+    } else {
+      // Print the row otherwise
+      int len = E.row.size;
+      if (len > E.screencols)
+        len = E.screencols;
+      abAppend(ab, E.row.chars, len);
     }
 
+    // Clear the rest of the line and go newline in the terminal
     abAppend(ab, ERASE_LINE_RIGHT, ERASE_LINE_RIGHT_SZ);
     if (y < E.screenrows - 1) {
       abAppend(ab, "\r\n", 2);
@@ -449,6 +483,7 @@ void initEditor(DLogger *l) {
   E.logger = l;
   E.cx = 0;
   E.cy = 0;
+  E.numrows = 0;
 
   enableRawMode();
 
@@ -467,6 +502,7 @@ int main(void) {
   DLogger *l = dlog_initf(f, DLOG_LEVEL_DEBUG);
 
   initEditor(l);
+  editorOpen();
 
   while (1) {
     editorRefreshScreen();
