@@ -62,7 +62,18 @@
 
 /*** enum ***/
 
-enum arrowKeys { ARROW_UP = 1000, ARROW_DOWN, ARROW_LEFT, ARROW_RIGHT };
+enum arrowKeys {
+  ARROW_UP = 1000,
+  ARROW_DOWN,
+  ARROW_LEFT,
+  ARROW_RIGHT,
+  HOME_KEY,
+  INSERT_KEY,
+  DELETE_KEY,
+  END_KEY,
+  PAGE_UP,
+  PAGE_DOWN,
+};
 enum moveKeys {
   KEY_j = 'j',
   KEY_J = 'J',
@@ -175,27 +186,66 @@ int editorReadKey(void) {
 
     // If Start Escape char '['
     if (seq[0] == '[') {
+      if (seq[1] >= '0' && seq[1] <= '9') {
+        if (read(STDIN_FILENO, &seq[2], 1) != 1)
+          return '\x1b';
+        if (seq[2] == '~') {
+          switch (seq[1]) {
+          case '1':
+            return HOME_KEY;
+          case '2':
+            return INSERT_KEY;
+          case '3':
+            return DELETE_KEY;
+          case '4':
+            return END_KEY;
+          case '5':
+            return PAGE_UP;
+          case '6':
+            return PAGE_DOWN;
+          case '7':
+            return HOME_KEY;
+          case '8':
+            return END_KEY;
+          }
+        }
+      } else {
+        switch (seq[1]) {
+        // Up Arrow
+        case 'A':
+          return ARROW_UP;
+        // Down Arrow
+        case 'B':
+          return ARROW_DOWN;
+        // Right Arrow
+        case 'C':
+          return ARROW_RIGHT;
+        // Left Arrow
+        case 'D':
+          return ARROW_LEFT;
+
+          // Home Key
+        case 'H':
+          return HOME_KEY;
+          // End Key
+        case 'F':
+          return END_KEY;
+        }
+      }
+    } else if (seq[0] == 'O') {
       switch (seq[1]) {
-      // Up Arrow
-      case 'A':
-        return ARROW_UP;
-      // Down Arrow
-      case 'B':
-        return ARROW_DOWN;
-      // Right Arrow
-      case 'C':
-        return ARROW_RIGHT;
-      // Left Arrow
-      case 'D':
-        return ARROW_LEFT;
+      case 'H':
+        return HOME_KEY;
+      case 'F':
+        return END_KEY;
       }
     }
 
     // By default just return the escape char
     return '\x1b';
+  } else {
+    return c;
   }
-
-  return c;
 }
 
 int getCursorPosition(uint16_t *rows, uint16_t *cols) {
@@ -237,8 +287,8 @@ int getWindowSize(uint16_t *rows, uint16_t *cols) {
   // There is a fallback in case it would fail
   if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == -1 || ws.ws_col == 0) {
     // Position the cursor to the bottom right and get rows,cols
-    // Cursor forward (C), cursor down (B), 999 just to make sure to get to the
-    // end
+    // Cursor forward (C), cursor down (B), 999 just to make sure to get to
+    // the end
     if (write(STDOUT_FILENO, "\x1b[999C\x1b[999B", 12) != 12)
       return -1;
 
@@ -293,8 +343,8 @@ void editorDrawRows(AppendBuffer *ab) {
 void editorRefreshScreen(void) {
   AppendBuffer ab = ABUF_INIT;
 
-  // To avoid cursor flickering, hide the cursor before clearing the screen and
-  // showing it later again
+  // To avoid cursor flickering, hide the cursor before clearing the screen
+  // and showing it later again
   abAppend(&ab, HIDE_CURSOR, HIDE_CURSOR_SZ);
   abAppend(&ab, REPOS_CURSOR, REPOS_CURSOR_SZ);
 
