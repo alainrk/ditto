@@ -25,6 +25,9 @@
 //      98 & 31 = 2
 #define CTRL_KEY(k) ((k) & 0x1f)
 
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+
 // Clear screen escape sequence:
 //
 // |++++++++|++++++++|++++++++|++++++++|
@@ -60,7 +63,18 @@
 /*** enum ***/
 
 enum arrowKeys { ARROW_UP = 1000, ARROW_DOWN, ARROW_LEFT, ARROW_RIGHT };
-enum moveKeys { KEY_J = 'j', KEY_K = 'k', KEY_H = 'h', KEY_L = 'l' };
+enum moveKeys {
+  KEY_j = 'j',
+  KEY_J = 'J',
+  KEY_k = 'k',
+  KEY_K = 'K',
+  KEY_h = 'h',
+  KEY_H = 'H',
+  KEY_l = 'l',
+  KEY_L = 'L',
+  KEY_g = 'g',
+  KEY_G = 'G'
+};
 
 /*** data ***/
 
@@ -303,28 +317,48 @@ void editorRefreshScreen(void) {
 void editorMoveCursor(int key) {
   switch (key) {
   case ARROW_DOWN:
-  case KEY_J:
+  case KEY_j:
     if (E.cy < E.screenrows - 1) {
       E.cy++;
     }
     break;
+
   case ARROW_UP:
-  case KEY_K:
+  case KEY_k:
     if (E.cy > 0) {
       E.cy--;
     }
     break;
+
   case ARROW_LEFT:
-  case KEY_H:
+  case KEY_h:
     if (E.cx > 0) {
       E.cx--;
     }
     break;
+
   case ARROW_RIGHT:
-  case KEY_L:
+  case KEY_l:
     if (E.cx < E.screencols - 1) {
       E.cx++;
     }
+    break;
+
+  // Full right
+  case KEY_L:
+    E.cx = E.screencols - 1;
+    break;
+  // Full left
+  case KEY_H:
+    E.cx = 0;
+    break;
+  // Fast down
+  case KEY_J:
+    E.cy = MIN(E.cy + 5, E.screenrows - 1);
+    break;
+  // Fast up
+  case KEY_K:
+    E.cy = MAX(E.cy - 5, 0);
     break;
   }
 }
@@ -345,10 +379,15 @@ void editorProcessKeypress(void) {
   case ARROW_UP:
   case ARROW_LEFT:
   case ARROW_RIGHT:
+  case KEY_j:
+  case KEY_k:
+  case KEY_h:
+  case KEY_l:
   case KEY_J:
   case KEY_K:
   case KEY_H:
   case KEY_L:
+  case KEY_G:
     editorMoveCursor(c);
     break;
   }
