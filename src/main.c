@@ -522,10 +522,10 @@ void editorProcessKeypress(void) {
     case KEY_g:
       editorMoveCursor(CMD_GO_TOP_DOC);
       break;
+    default:
+      dlog_debug(E.logger, "no sequence for '%c%c'", c, cc);
+      break;
     }
-  default:
-    dlog_debug(E.logger, "g pressed without nothing else");
-    break;
   }
 }
 
