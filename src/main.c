@@ -59,6 +59,9 @@
 #define ERASE_LINE_RIGHT "\x1b[K"
 #define ERASE_LINE_RIGHT_SZ 3
 
+// Amount of microseconds to wait when waiting for key sequences
+#define SEQUENCES_TIMEOUT_MICROSEC 100000 // 100ms
+
 #define ABUF_INIT {NULL, 0}
 
 /*** enum ***/
@@ -512,11 +515,17 @@ void editorProcessKeypress(void) {
     editorMoveCursor(CMD_GO_BOTTOM_DOC);
     break;
   case KEY_g:
+    // Sleep a bit to allow the possible sequence to be read
+    usleep(SEQUENCES_TIMEOUT_MICROSEC);
     cc = editorReadKey();
     switch (cc) {
+    case KEY_g:
       editorMoveCursor(CMD_GO_TOP_DOC);
       break;
     }
+  default:
+    dlog_debug(E.logger, "g pressed without nothing else");
+    break;
   }
 }
 
