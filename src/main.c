@@ -75,6 +75,12 @@ enum arrowKeys {
   PAGE_UP,
   PAGE_DOWN,
 };
+
+enum editorCommands {
+  CMD_GO_TOP_DOC = 2000,
+  CMD_GO_BOTTOM_DOC,
+};
+
 enum moveKeys {
   KEY_j = 'j',
   KEY_J = 'J',
@@ -459,6 +465,16 @@ void editorMoveCursor(int key) {
   case KEY_K:
     E.cy = MAX(E.cy - 5, 0);
     break;
+
+  // TODO: Need to move to top document, not just first editor row
+  // Go top of doc
+  case CMD_GO_TOP_DOC:
+    E.cy = 0;
+    break;
+  // Go bottom of doc
+  case CMD_GO_BOTTOM_DOC:
+    E.cy = E.screenrows - 1;
+    break;
   }
 }
 
@@ -466,9 +482,12 @@ void destroyEditor(void) { dlog_close(E.logger); }
 
 void editorProcessKeypress(void) {
   int c = editorReadKey();
+  int cc = 0;
+
   dlog_debug(E.logger, "Pressed '%c'", c);
 
   switch (c) {
+  case CTRL_KEY('c'):
   case CTRL_KEY('q'):
     write(STDOUT_FILENO, CLEAR_SCREEN, CLEAR_SCREEN_SZ);
     write(STDOUT_FILENO, REPOS_CURSOR, REPOS_CURSOR_SZ);
@@ -486,9 +505,18 @@ void editorProcessKeypress(void) {
   case KEY_K:
   case KEY_H:
   case KEY_L:
-  case KEY_G:
     editorMoveCursor(c);
     break;
+
+  case KEY_G:
+    editorMoveCursor(CMD_GO_BOTTOM_DOC);
+    break;
+  case KEY_g:
+    cc = editorReadKey();
+    switch (cc) {
+      editorMoveCursor(CMD_GO_TOP_DOC);
+      break;
+    }
   }
 }
 
