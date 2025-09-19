@@ -1,6 +1,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <stdarg.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -110,12 +111,12 @@ typedef struct {
   uint16_t cx, cy;
   // Screen size
   uint16_t screenrows, screencols;
-  // Terminal status
-  struct termios orig_termios;
   // Number of rows
   uint32_t numrows;
-  // Current row
-  Row row;
+  // Editor rows
+  Row *row;
+  // Terminal status
+  struct termios orig_termios;
 } EditorConfig;
 
 EditorConfig E;
@@ -320,6 +321,19 @@ int getWindowSize(uint16_t *rows, uint16_t *cols) {
   return 0;
 }
 
+/*** row operations ***/
+
+void editorAppendRow(char *s, size_t len) {
+  E.row = realloc(E.row, sizeof(Row) * (E.numrows + 1));
+
+  int at = E.numrows;
+  E.row[at].size = len;
+  E.row[at].chars = malloc(len + 1);
+  memcpy(E.row[at].chars, s, len);
+  E.row[at].chars[len] = '\0';
+  E.numrows++;
+}
+
 /*** file i/o ***/
 
 void editorOpen(const char *filename) {
@@ -331,17 +345,13 @@ void editorOpen(const char *filename) {
   size_t linecap = 0;
   ssize_t linelen;
 
-  linelen = getline(&line, &linecap, f);
-  if (linelen != -1) {
+  while ((linelen = getline(&line, &linecap, f)) != -1) {
+    dlog_debug(E.logger, "read line of len = %d, cap = %d", linelen, linecap);
     while (linelen > 0 &&
            (line[linelen - 1] == '\n' || line[linelen - 1] == '\r'))
       linelen--;
 
-    E.row.size = linelen;
-    E.row.chars = malloc(linelen + 1);
-    memcpy(E.row.chars, line, linelen);
-    E.row.chars[linelen] = '\0';
-    E.numrows = 1;
+    editorAppendRow(line, linelen);
   }
 
   free(line);
@@ -366,8 +376,7 @@ void abFree(AppendBuffer *ab) { free(ab->b); }
 /*** output ***/
 
 void editorDrawRows(AppendBuffer *ab) {
-  int y;
-  for (y = 0; y < E.screenrows; y++) {
+  for (int y = 0; y < E.screenrows; y++) {
     // If we are at the end of the file
     if (y >= (int)E.numrows) {
       abAppend(ab, "~", 1);
@@ -384,10 +393,10 @@ void editorDrawRows(AppendBuffer *ab) {
       }
     } else {
       // Print the row otherwise
-      int len = E.row.size;
+      int len = E.row[y].size;
       if (len > E.screencols)
         len = E.screencols;
-      abAppend(ab, E.row.chars, len);
+      abAppend(ab, E.row[y].chars, len);
     }
 
     // Clear the rest of the line and go newline in the terminal
@@ -429,6 +438,7 @@ void editorMoveCursor(int key) {
     if (E.cy < E.screenrows - 1) {
       E.cy++;
     }
+    dlog_debug(E.logger, "len this line = %d", E.row[E.cy].size);
     break;
 
   case ARROW_UP:
@@ -454,7 +464,8 @@ void editorMoveCursor(int key) {
 
   // Full right
   case KEY_L:
-    E.cx = E.screencols - 1;
+    // TODO: Will need to move to the file line end, not the editor line end
+    E.cx = MAX(0, E.row[E.cy].size - 1);
     break;
   // Full left
   case KEY_H:
@@ -536,6 +547,7 @@ void initEditor(DLogger *l) {
   E.cx = 0;
   E.cy = 0;
   E.numrows = 0;
+  E.row = NULL;
 
   enableRawMode();
 
