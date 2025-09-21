@@ -113,7 +113,7 @@ typedef struct {
   uint32_t rowoff;
   // Screen size
   uint16_t screenrows, screencols;
-  // Number of rows
+  // Number of rows in the file
   uint32_t numrows;
   // Editor rows
   Row *row;
@@ -454,10 +454,9 @@ void editorMoveCursor(int key) {
   switch (key) {
   case ARROW_DOWN:
   case KEY_j:
-    if (E.cy < E.screenrows - 1) {
+    if (E.cy < E.numrows) {
       E.cy++;
     }
-    dlog_debug(E.logger, "len this line = %d", E.row[E.cy].size);
     break;
 
   case ARROW_UP:
@@ -492,7 +491,7 @@ void editorMoveCursor(int key) {
     break;
   // Fast down
   case KEY_J:
-    E.cy = MIN(E.cy + 5, E.screenrows - 1);
+    E.cy = MIN(E.cy + 5, E.numrows - 1);
     break;
   // Fast up
   case KEY_K:
@@ -506,7 +505,7 @@ void editorMoveCursor(int key) {
     break;
   // Go bottom of doc
   case CMD_GO_BOTTOM_DOC:
-    E.cy = E.screenrows - 1;
+    E.cy = E.numrows - 1;
     break;
   }
 }
