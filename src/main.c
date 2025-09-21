@@ -377,6 +377,20 @@ void abFree(AppendBuffer *ab) { free(ab->b); }
 
 /*** output ***/
 
+void editorScroll(void) {
+  // Cursor is above visible window
+  if (E.cy < E.rowoff) {
+    // Align file offset to the cursor
+    E.rowoff = E.cy;
+  }
+
+  // Cursor is below visible window
+  if (E.cy >= E.rowoff + E.screenrows) {
+    // Align file offset to the cursor + the y-size of the screen
+    E.rowoff = E.cy - E.screenrows + 1;
+  }
+}
+
 void editorDrawRows(AppendBuffer *ab) {
   for (int y = 0; y < E.screenrows; y++) {
     int filerow = y + E.rowoff;
@@ -412,6 +426,8 @@ void editorDrawRows(AppendBuffer *ab) {
 
 void editorRefreshScreen(void) {
   AppendBuffer ab = ABUF_INIT;
+
+  editorScroll();
 
   // To avoid cursor flickering, hide the cursor before clearing the screen
   // and showing it later again
