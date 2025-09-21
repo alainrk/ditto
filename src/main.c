@@ -107,8 +107,10 @@ typedef struct {
 
 typedef struct {
   DLogger *logger;
-  // Cursor position
-  uint16_t cx, cy;
+  // Cursor X-position relative to the file
+  uint16_t cx;
+  // Cursor Y-position relative to the current line
+  uint16_t cy;
   // Row offset, current file row user is on
   uint32_t rowoff;
   // Screen size
@@ -437,7 +439,7 @@ void editorRefreshScreen(void) {
   editorDrawRows(&ab);
 
   char buf[32];
-  snprintf(buf, sizeof(buf), "\x1b[%d;%dH", E.cy + 1, E.cx + 1);
+  snprintf(buf, sizeof(buf), "\x1b[%d;%dH", (E.cy - E.rowoff) + 1, E.cx + 1);
   abAppend(&ab, buf, strlen(buf));
 
   dlog_debug(E.logger, "%hu;%hu", E.cy + 1, E.cx + 1);
