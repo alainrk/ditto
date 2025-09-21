@@ -109,6 +109,8 @@ typedef struct {
   DLogger *logger;
   // Cursor position
   uint16_t cx, cy;
+  // Row offset, current file row user is on
+  uint32_t rowoff;
   // Screen size
   uint16_t screenrows, screencols;
   // Number of rows
@@ -377,8 +379,9 @@ void abFree(AppendBuffer *ab) { free(ab->b); }
 
 void editorDrawRows(AppendBuffer *ab) {
   for (int y = 0; y < E.screenrows; y++) {
+    int filerow = y + E.rowoff;
     // If we are at the end of the file
-    if (y >= (int)E.numrows) {
+    if (filerow >= (int)E.numrows) {
       abAppend(ab, "~", 1);
 
       // Welcome message if no content or no file loaded
@@ -393,10 +396,10 @@ void editorDrawRows(AppendBuffer *ab) {
       }
     } else {
       // Print the row otherwise
-      int len = E.row[y].size;
+      int len = E.row[filerow].size;
       if (len > E.screencols)
         len = E.screencols;
-      abAppend(ab, E.row[y].chars, len);
+      abAppend(ab, E.row[filerow].chars, len);
     }
 
     // Clear the rest of the line and go newline in the terminal
@@ -546,6 +549,7 @@ void initEditor(DLogger *l) {
   E.logger = l;
   E.cx = 0;
   E.cy = 0;
+  E.rowoff = 0;
   E.numrows = 0;
   E.row = NULL;
 
