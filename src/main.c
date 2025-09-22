@@ -17,6 +17,7 @@
 /*** defines ***/
 
 #define DITTO_VERSION "v0.0.0"
+#define DITTO_TAB_STOP 2
 
 #define UNUSED(x) (void)(x);
 
@@ -104,8 +105,14 @@ enum moveKeys {
 /*** data ***/
 
 typedef struct {
+  // Real length of the row
   uint32_t size;
+  // Rendered length of the row
+  uint32_t rsize;
+  // Real Characters in the row
   char *chars;
+  // Rendered characters in the row
+  char *render;
 } Row;
 
 typedef struct {
@@ -331,6 +338,33 @@ int getWindowSize(uint16_t *rows, uint16_t *cols) {
 
 /*** row operations ***/
 
+void editorUpdateRow(Row *row) {
+  int tabs = 0;
+
+  for (uint32_t j = 0; j < row->size; j++) {
+    if (row->chars[j] == '\t')
+      tabs++;
+  }
+
+  free(row->render);
+  row->render = malloc(row->size + tabs * (DITTO_TAB_STOP - 1) + 1);
+
+  int idx = 0;
+  for (uint32_t j = 0; j < row->size; j++) {
+    // Tabs rendering
+    if (row->chars[j] == '\t') {
+      row->render[idx++] = ' ';
+      while (idx % DITTO_TAB_STOP != 0)
+        row->render[idx++] = ' ';
+    } else {
+      row->render[idx++] = row->chars[j];
+    }
+  }
+
+  row->render[idx] = '\0';
+  row->rsize = idx;
+}
+
 void editorAppendRow(char *s, size_t len) {
   E.row = realloc(E.row, sizeof(Row) * (E.numrows + 1));
 
@@ -339,6 +373,11 @@ void editorAppendRow(char *s, size_t len) {
   E.row[at].chars = malloc(len + 1);
   memcpy(E.row[at].chars, s, len);
   E.row[at].chars[len] = '\0';
+
+  E.row[at].rsize = 0;
+  E.row[at].render = NULL;
+  editorUpdateRow(&E.row[at]);
+
   E.numrows++;
 }
 
@@ -425,12 +464,12 @@ void editorDrawRows(AppendBuffer *ab) {
       }
     } else {
       // Print the row otherwise, considering the column offset
-      int len = E.row[filerow].size - E.coloff;
+      int len = E.row[filerow].rsize - E.coloff;
       if (len < 0)
         len = 0;
       if (len > E.screencols)
         len = E.screencols;
-      abAppend(ab, &E.row[filerow].chars[E.coloff], len);
+      abAppend(ab, &E.row[filerow].render[E.coloff], len);
     }
 
     // Clear the rest of the line and go newline in the terminal
@@ -496,8 +535,8 @@ void editorMoveCursor(int key) {
 
   case ARROW_RIGHT:
   case KEY_l:
-    // Limit right scrolling to 1 char after EOL (to allow append)
-    if (row && E.cx < row->size) {
+    // Limit right scrolling
+    if (row && E.cx < row->size - 1) {
       E.cx++;
     }
     break;
