@@ -112,7 +112,7 @@ typedef struct {
   DLogger *logger;
   // Cursor X-position relative to the file
   uint16_t cx;
-  // Cursor Y-position relative to the current line
+  // Cursor Y-position relative to the current line in the file
   uint16_t cy;
   // Row offset in current file the cursor is on
   uint32_t rowoff;
@@ -469,6 +469,9 @@ void editorRefreshScreen(void) {
 /*** input ***/
 
 void editorMoveCursor(int key) {
+  // Current row can be a valid one or the first "empty" line at the end
+  Row *row = (E.cy >= E.numrows) ? NULL : &E.row[E.cy];
+
   switch (key) {
   case ARROW_DOWN:
   case KEY_j:
@@ -493,7 +496,10 @@ void editorMoveCursor(int key) {
 
   case ARROW_RIGHT:
   case KEY_l:
-    E.cx++;
+    // Limit right scrolling to 1 char after EOL (to allow append)
+    if (row && E.cx < row->size) {
+      E.cx++;
+    }
     break;
 
   // Full right
@@ -524,6 +530,14 @@ void editorMoveCursor(int key) {
     E.cy = E.numrows - 1;
     break;
   }
+
+  // New row after the movement
+  row = (E.cy >= E.numrows) ? NULL : &E.row[E.cy];
+  int rowlen = row ? row->size : 0;
+  // Avoid ending up in an invalid x-position through vertical movements across
+  // lines with different size
+  if (E.cx > rowlen)
+    E.cx = rowlen;
 }
 
 void destroyEditor(void) { dlog_close(E.logger); }
