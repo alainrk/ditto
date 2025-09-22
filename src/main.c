@@ -60,6 +60,9 @@
 #define ERASE_LINE_RIGHT "\x1b[K"
 #define ERASE_LINE_RIGHT_SZ 3
 
+// Position the cursor (forward: C, down: B)
+#define POS_CURSOR_AT(x, y) "\x1b[" #y "C\x1b[" #x "B"
+
 // Amount of microseconds to wait when waiting for key sequences
 #define SEQUENCES_TIMEOUT_MICROSEC 100000 // 100ms
 
@@ -310,10 +313,9 @@ int getWindowSize(uint16_t *rows, uint16_t *cols) {
   // (Terminal Input Output Control Get WINdow SiZe)
   // There is a fallback in case it would fail
   if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == -1 || ws.ws_col == 0) {
-    // Position the cursor to the bottom right and get rows,cols
-    // Cursor forward (C), cursor down (B), 999 just to make sure to get to
-    // the end
-    if (write(STDOUT_FILENO, "\x1b[999C\x1b[999B", 12) != 12)
+    // Position the cursor to the bottom right and get rows,cols (use 999 just
+    // to be sure)
+    if (write(STDOUT_FILENO, POS_CURSOR_AT(999, 999), 12) != 12)
       return -1;
 
     return getCursorPosition(rows, cols);
