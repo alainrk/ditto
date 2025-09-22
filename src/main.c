@@ -114,8 +114,10 @@ typedef struct {
   uint16_t cx;
   // Cursor Y-position relative to the current line
   uint16_t cy;
-  // Row offset, current file row user is on
+  // Row offset in current file the cursor is on
   uint32_t rowoff;
+  // Column offset in current file the cursor is on
+  uint32_t coloff;
   // Screen size
   uint16_t screenrows, screencols;
   // Number of rows in the file
@@ -393,6 +395,15 @@ void editorScroll(void) {
     // Align file offset to the cursor + the y-size of the screen
     E.rowoff = E.cy - E.screenrows + 1;
   }
+
+  // Cursor is to the left of visible window
+  if (E.cx < E.coloff) {
+    E.coloff = E.cx;
+  }
+  // Cursor is to the right of visible window
+  if (E.cx >= E.coloff + E.screencols) {
+    E.coloff = E.cx - E.screencols + 1;
+  }
 }
 
 void editorDrawRows(AppendBuffer *ab) {
@@ -413,11 +424,13 @@ void editorDrawRows(AppendBuffer *ab) {
         abAppend(ab, line, pad + l);
       }
     } else {
-      // Print the row otherwise
-      int len = E.row[filerow].size;
+      // Print the row otherwise, considering the column offset
+      int len = E.row[filerow].size - E.coloff;
+      if (len < 0)
+        len = 0;
       if (len > E.screencols)
         len = E.screencols;
-      abAppend(ab, E.row[filerow].chars, len);
+      abAppend(ab, &E.row[filerow].chars[E.coloff], len);
     }
 
     // Clear the rest of the line and go newline in the terminal
@@ -441,7 +454,8 @@ void editorRefreshScreen(void) {
   editorDrawRows(&ab);
 
   char buf[32];
-  snprintf(buf, sizeof(buf), "\x1b[%d;%dH", (E.cy - E.rowoff) + 1, E.cx + 1);
+  snprintf(buf, sizeof(buf), "\x1b[%d;%dH", (E.cy - E.rowoff) + 1,
+           (E.cx - E.coloff) + 1);
   abAppend(&ab, buf, strlen(buf));
 
   dlog_debug(E.logger, "%hu;%hu", E.cy + 1, E.cx + 1);
@@ -479,9 +493,7 @@ void editorMoveCursor(int key) {
 
   case ARROW_RIGHT:
   case KEY_l:
-    if (E.cx < E.screencols - 1) {
-      E.cx++;
-    }
+    E.cx++;
     break;
 
   // Full right
@@ -569,6 +581,7 @@ void initEditor(DLogger *l) {
   E.cx = 0;
   E.cy = 0;
   E.rowoff = 0;
+  E.coloff = 0;
   E.numrows = 0;
   E.row = NULL;
 
