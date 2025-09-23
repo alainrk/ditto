@@ -117,10 +117,14 @@ typedef struct {
 
 typedef struct {
   DLogger *logger;
-  // Cursor X-position relative to the file
+  // Current cursor X-position relative to the actual chars in the file
   uint16_t cx;
-  // Cursor Y-position relative to the current line in the file
+  // Current cursor Y-position relative to the actual chars in the file
   uint16_t cy;
+  // Current cursor X-position relative to the rendered chars in the file
+  uint16_t rx;
+  // Current cursor Y-position relative to the rendered chars in the file
+  uint16_t ry;
   // Row offset in current file the cursor is on
   uint32_t rowoff;
   // Column offset in current file the cursor is on
@@ -338,6 +342,21 @@ int getWindowSize(uint16_t *rows, uint16_t *cols) {
 
 /*** row operations ***/
 
+int editorRowCxToRx(Row *row, uint32_t cx) {
+  int rx = 0;
+
+  // Rendered cursor x-position needs to advance according to chosen rendered
+  // spaces for tab, for each tab in the line so far
+  for (uint32_t j = 0; j < cx; j++) {
+    if (row->chars[j] == '\t') {
+      rx += (DITTO_TAB_STOP - 1) - (rx % DITTO_TAB_STOP);
+    }
+    rx++;
+  }
+
+  return rx;
+}
+
 void editorUpdateRow(Row *row) {
   int tabs = 0;
 
@@ -423,6 +442,13 @@ void abFree(AppendBuffer *ab) { free(ab->b); }
 /*** output ***/
 
 void editorScroll(void) {
+  E.rx = 0;
+
+  // Horizontal scroll based on rendered chars
+  if (E.cy < E.numrows) {
+    E.rx = editorRowCxToRx(&E.row[E.cy], E.cx);
+  }
+
   // Cursor is above visible window
   if (E.cy < E.rowoff) {
     // Align file offset to the cursor
@@ -433,6 +459,14 @@ void editorScroll(void) {
   if (E.cy >= E.rowoff + E.screenrows) {
     // Align file offset to the cursor + the y-size of the screen
     E.rowoff = E.cy - E.screenrows + 1;
+  }
+
+  // Handle rendered difference of x position of the cursor
+  if (E.rx < E.coloff) {
+    E.coloff = E.rx;
+  }
+  if (E.rx >= E.coloff + E.screencols) {
+    E.coloff = E.rx - E.screencols + 1;
   }
 
   // Cursor is to the left of visible window
@@ -494,7 +528,7 @@ void editorRefreshScreen(void) {
 
   char buf[32];
   snprintf(buf, sizeof(buf), "\x1b[%d;%dH", (E.cy - E.rowoff) + 1,
-           (E.cx - E.coloff) + 1);
+           (E.rx - E.coloff) + 1);
   abAppend(&ab, buf, strlen(buf));
 
   dlog_debug(E.logger, "%hu;%hu", E.cy + 1, E.cx + 1);
@@ -632,7 +666,9 @@ void editorProcessKeypress(void) {
 void initEditor(DLogger *l) {
   E.logger = l;
   E.cx = 0;
+  E.rx = 0;
   E.cy = 0;
+  E.ry = 0;
   E.rowoff = 0;
   E.coloff = 0;
   E.numrows = 0;
