@@ -538,30 +538,14 @@ void editorDrawRows(AppendBuffer *ab) {
 
 void editorDrawStatusBar(AppendBuffer *ab) {
   abAppend(ab, COLORS_INVERT_ON, COLORS_INVERT_ON_SZ);
-  uint16_t len = 0;
+  // uint16_t len = 0;
 
-  // TODO: Improve this setup
-  abAppend(ab, " ", 1);
-  len++;
-
-  abAppend(ab, COLORS_BOLD_ON, COLORS_BOLD_ON_SZ);
-
-  const char *mode = mode_str[E.mode];
-  abAppend(ab, mode, strlen(mode));
-  len += strlen(mode);
-
-  abAppend(ab, COLORS_BOLD_OFF, COLORS_BOLD_OFF_SZ);
-
-  abAppend(ab, " ", 1);
-  len++;
-
-  if (E.filename != NULL) {
-    abAppend(ab, E.filename, strlen(E.filename));
-    len += strlen(E.filename);
-  } else {
-    abAppend(ab, "[No Name]", 9);
-    len += 9;
-  }
+  char status[80];
+  // TODO: Update E.cy to E.ry if and when rendered y is different from cy
+  int len = snprintf(status, sizeof(status), " %s%s%s %.20s - %d:%d",
+                     COLORS_BOLD_ON, mode_str[E.mode], COLORS_BOLD_OFF,
+                     E.filename ? E.filename : "[No Name]", E.rx + 1, E.cy + 1);
+  abAppend(ab, status, len);
 
   while (len < E.screencols) {
     abAppend(ab, " ", 1);
