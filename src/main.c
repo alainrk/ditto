@@ -81,12 +81,13 @@
 
 /*** enum ***/
 
-enum editorMode { NORMAL_MODE = 0, INSERT_MODE, VISUAL_MODE };
+enum editorMode { NORMAL_MODE = 0, INSERT_MODE, VISUAL_MODE, COMMAND_MODE };
 
 static const char *const mode_str[] = {
     [NORMAL_MODE] = "NORMAL",
     [INSERT_MODE] = "INSERT",
     [VISUAL_MODE] = "VISUAL",
+    [COMMAND_MODE] = "COMMAND",
 };
 
 enum arrowKeys {
@@ -109,6 +110,7 @@ enum editorCommands {
 
 enum keys {
   KEY_ESC = 27,
+  KEY_COLON = 58,
   KEY_G = 'G',
   KEY_H = 'H',
   KEY_J = 'J',
@@ -120,6 +122,7 @@ enum keys {
   KEY_j = 'j',
   KEY_k = 'k',
   KEY_l = 'l',
+  KEY_v = 'v',
 };
 
 /*** data ***/
@@ -700,7 +703,7 @@ void editorProcessKeypress(void) {
   int c = editorReadKey();
   int cc = 0;
 
-  dlog_debug(E.logger, "Pressed '%c'", c);
+  dlog_debug(E.logger, "Pressed '%c' (%d)", c, c);
 
   switch (c) {
   case CTRL_KEY('c'):
@@ -714,6 +717,12 @@ void editorProcessKeypress(void) {
     break;
   case KEY_i:
     editorChangeMode(INSERT_MODE);
+    break;
+  case KEY_v:
+    editorChangeMode(VISUAL_MODE);
+    break;
+  case KEY_COLON:
+    editorChangeMode(COMMAND_MODE);
     break;
   case ARROW_UP:
   case ARROW_LEFT:
