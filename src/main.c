@@ -542,20 +542,27 @@ void editorDrawStatusBar(AppendBuffer *ab) {
   char status[80];
   char rstatus[80];
 
-  // TODO: Update E.cy to E.ry if and when rendered y is different from cy
   int len = snprintf(status, sizeof(status), " %s%s%s %.20s", COLORS_BOLD_ON,
                      mode_str[E.mode], COLORS_BOLD_OFF,
                      E.filename ? E.filename : "[No Name]");
 
-  // Remove not visible chars from count
-  int vizlen = len - (COLORS_BOLD_ON_SZ + COLORS_BOLD_OFF_SZ);
-
   int rlen = snprintf(rstatus, sizeof(rstatus), "%d:%d ", E.cy + 1, E.rx + 1);
+
+  // Remove not visible chars from count
+  int nonprintable = 0;
+  nonprintable += COLORS_BOLD_ON_SZ + COLORS_BOLD_OFF_SZ;
+
+  // Visible chars counting
+  int vizlen = len - nonprintable;
 
   // Handle overflow of the statusbar content
   if (vizlen > E.screencols)
     vizlen = E.screencols;
-  abAppend(ab, status, len);
+
+  // Assumption: I append the statusbar, but if too long, truncate it,
+  // remembering to add the nonprintable chars of the mode, which we assume are
+  // always there
+  abAppend(ab, status, vizlen + nonprintable);
 
   // Fill the rest of the statusbar with spaces
   while (vizlen < (E.screencols - rlen)) {
