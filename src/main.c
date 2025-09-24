@@ -555,8 +555,13 @@ void editorDrawStatusBar(AppendBuffer *ab) {
   abAppend(ab, " ", 1);
   len++;
 
-  abAppend(ab, E.filename, strlen(E.filename));
-  len += strlen(E.filename);
+  if (E.filename != NULL) {
+    abAppend(ab, E.filename, strlen(E.filename));
+    len += strlen(E.filename);
+  } else {
+    abAppend(ab, "[No Name]", 9);
+    len += 9;
+  }
 
   while (len < E.screencols) {
     abAppend(ab, " ", 1);
