@@ -106,17 +106,19 @@ enum editorCommands {
   CMD_GO_BOTTOM_DOC,
 };
 
-enum moveKeys {
-  KEY_j = 'j',
-  KEY_J = 'J',
-  KEY_k = 'k',
-  KEY_K = 'K',
-  KEY_h = 'h',
+enum keys {
+  KEY_ESC = 27,
+  KEY_G = 'G',
   KEY_H = 'H',
-  KEY_l = 'l',
+  KEY_J = 'J',
+  KEY_K = 'K',
   KEY_L = 'L',
   KEY_g = 'g',
-  KEY_G = 'G'
+  KEY_h = 'h',
+  KEY_i = 'i',
+  KEY_j = 'j',
+  KEY_k = 'k',
+  KEY_l = 'l',
 };
 
 /*** data ***/
@@ -545,8 +547,13 @@ void editorDrawStatusBar(AppendBuffer *ab) {
   int len = snprintf(status, sizeof(status), " %s%s%s %.20s - %d:%d",
                      COLORS_BOLD_ON, mode_str[E.mode], COLORS_BOLD_OFF,
                      E.filename ? E.filename : "[No Name]", E.rx + 1, E.cy + 1);
+
+  // Handle overflow of the statusbar content
+  if (len > E.screencols)
+    len = E.screencols;
   abAppend(ab, status, len);
 
+  // Fill the rest of the statusbar with spaces
   while (len < E.screencols) {
     abAppend(ab, " ", 1);
     len++;
@@ -582,6 +589,8 @@ void editorRefreshScreen(void) {
 }
 
 /*** input ***/
+
+void editorChangeMode(enum editorMode mode) { E.mode = mode; }
 
 void editorMoveCursor(int key) {
   // Current row can be a valid one or the first "empty" line at the end
@@ -670,7 +679,12 @@ void editorProcessKeypress(void) {
     write(STDOUT_FILENO, REPOS_CURSOR, REPOS_CURSOR_SZ);
     exit(0);
     break;
-  case ARROW_DOWN:
+  case KEY_ESC:
+    editorChangeMode(NORMAL_MODE);
+    break;
+  case KEY_i:
+    editorChangeMode(INSERT_MODE);
+    break;
   case ARROW_UP:
   case ARROW_LEFT:
   case ARROW_RIGHT:
