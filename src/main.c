@@ -60,6 +60,11 @@
 // to cursor, 2 = all line)
 #define ERASE_LINE_RIGHT "\x1b[K"
 #define ERASE_LINE_RIGHT_SZ 3
+// Terminal color management
+#define INVERTED_COLORS "\x1b[7m"
+#define INVERTED_COLORS_SZ 4
+#define CLEAR_COLORS "\x1b[m"
+#define CLEAR_COLORS_SZ 3
 
 // Position the cursor (forward: C, down: B)
 #define POS_CURSOR_AT(x, y) "\x1b[" #y "C\x1b[" #x "B"
@@ -508,10 +513,20 @@ void editorDrawRows(AppendBuffer *ab) {
 
     // Clear the rest of the line and go newline in the terminal
     abAppend(ab, ERASE_LINE_RIGHT, ERASE_LINE_RIGHT_SZ);
-    if (y < E.screenrows - 1) {
-      abAppend(ab, "\r\n", 2);
-    }
+    abAppend(ab, "\r\n", 2);
   }
+}
+
+void editorDrawStatusBar(AppendBuffer *ab) {
+  abAppend(ab, INVERTED_COLORS, INVERTED_COLORS_SZ);
+  uint16_t len = 0;
+
+  while (len < E.screencols) {
+    abAppend(ab, " ", 1);
+    len++;
+  }
+
+  abAppend(ab, CLEAR_COLORS, CLEAR_COLORS_SZ);
 }
 
 void editorRefreshScreen(void) {
@@ -525,6 +540,7 @@ void editorRefreshScreen(void) {
   abAppend(&ab, REPOS_CURSOR, REPOS_CURSOR_SZ);
 
   editorDrawRows(&ab);
+  editorDrawStatusBar(&ab);
 
   char buf[32];
   snprintf(buf, sizeof(buf), "\x1b[%d;%dH", (E.cy - E.rowoff) + 1,
@@ -680,6 +696,9 @@ void initEditor(DLogger *l) {
 
   if (getWindowSize(&E.screenrows, &E.screencols) == -1)
     die("getWindowSize");
+
+  // Make space for status bar
+  E.screenrows -= 1;
 
   atexit(destroyEditor);
 }

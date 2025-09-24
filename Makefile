@@ -60,6 +60,7 @@ run: $(MAIN)
 test: $(MAIN)
 	$(MAIN) test/TODO
 
+# Unstuck process while developing if editor gets blocked
 kill:
 	scripts/kill.sh
 
