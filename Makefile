@@ -19,7 +19,7 @@ OBJS = $(SRCS:$(SRC_DIR)/%.c=$(OBJ_DIR)/%.o)
 # Main executable
 MAIN = $(BIN_DIR)/ditto
 
-.PHONY: all clean debug release
+.PHONY: all clean debug release kill
 
 all: $(MAIN)
 
@@ -59,6 +59,9 @@ run: $(MAIN)
 # Run a specific test or script
 test: $(MAIN)
 	$(MAIN) test/TODO
+
+kill:
+	scripts/kill.sh
 
 # Debug with GDB
 gdb-debug: debug
