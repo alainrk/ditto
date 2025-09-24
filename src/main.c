@@ -18,6 +18,7 @@
 
 #define DITTO_VERSION "v0.0.0"
 #define DITTO_TAB_STOP 2
+#define DITTO_LINENO_ENABLED 1
 
 #define UNUSED(x) (void)(x);
 
@@ -363,6 +364,14 @@ int getWindowSize(uint16_t *rows, uint16_t *cols) {
   return 0;
 }
 
+/*** line number operations ***/
+
+int editorGetLineNumberWidth(void) {
+  if (!DITTO_LINENO_ENABLED)
+    return 0;
+  return 5; // "9999 " format (4 digits + space)
+}
+
 /*** row operations ***/
 
 int editorRowCxToRx(Row *row, uint32_t cx) {
@@ -506,7 +515,15 @@ void editorScroll(void) {
 
 void editorDrawRows(AppendBuffer *ab) {
   for (int y = 0; y < E.screenrows; y++) {
-    int filerow = y + E.rowoff;
+    uint16_t filerow = y + E.rowoff;
+
+    // Print the line number
+    if (DITTO_LINENO_ENABLED && filerow < E.numrows) {
+      char line[16];
+      snprintf(line, sizeof(line), "%4d ", filerow + 1);
+      abAppend(ab, line, strlen(line));
+    }
+
     // If we are at the end of the file
     if (filerow >= (int)E.numrows) {
       abAppend(ab, "~", 1);
@@ -590,7 +607,7 @@ void editorRefreshScreen(void) {
 
   char buf[32];
   snprintf(buf, sizeof(buf), "\x1b[%d;%dH", (E.cy - E.rowoff) + 1,
-           (E.rx - E.coloff) + 1);
+           (E.rx - E.coloff) + editorGetLineNumberWidth() + 1);
   abAppend(&ab, buf, strlen(buf));
 
   dlog_debug(E.logger, "%hu;%hu", E.cy + 1, E.cx + 1);
@@ -753,6 +770,9 @@ void initEditor(DLogger *l) {
     die("getWindowSize");
 
   dlog_debug(E.logger, "Screen size: %d x %d", E.screenrows, E.screencols);
+
+  // Make space for the line numbers
+  E.screencols -= editorGetLineNumberWidth();
 
   // Make space for status bar
   E.screenrows -= 1;
