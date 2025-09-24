@@ -61,10 +61,14 @@
 #define ERASE_LINE_RIGHT "\x1b[K"
 #define ERASE_LINE_RIGHT_SZ 3
 // Terminal color management
-#define INVERTED_COLORS "\x1b[7m"
-#define INVERTED_COLORS_SZ 4
-#define CLEAR_COLORS "\x1b[m"
-#define CLEAR_COLORS_SZ 3
+#define COLORS_INVERT_ON "\x1b[7m"
+#define COLORS_INVERT_ON_SZ 4
+#define COLORS_BOLD_ON "\x1b[1m"
+#define COLORS_BOLD_ON_SZ 4
+#define COLORS_BOLD_OFF "\x1b[22m"
+#define COLORS_BOLD_OFF_SZ 5
+#define COLORS_ALL_OFF "\x1b[m"
+#define COLORS_ALL_OFF_SZ 3
 
 // Position the cursor (forward: C, down: B)
 #define POS_CURSOR_AT(x, y) "\x1b[" #y "C\x1b[" #x "B"
@@ -75,6 +79,14 @@
 #define ABUF_INIT {NULL, 0}
 
 /*** enum ***/
+
+enum editorMode { NORMAL_MODE = 0, INSERT_MODE, VISUAL_MODE };
+
+static const char *const mode_str[] = {
+    [NORMAL_MODE] = "NORMAL",
+    [INSERT_MODE] = "INSERT",
+    [VISUAL_MODE] = "VISUAL",
+};
 
 enum arrowKeys {
   ARROW_UP = 1000,
@@ -140,6 +152,10 @@ typedef struct {
   uint32_t numrows;
   // Editor rows
   Row *row;
+  // Current mode
+  enum editorMode mode;
+  // Currently open filename
+  char *filename;
   // Terminal status
   struct termios orig_termios;
 } EditorConfig;
@@ -408,6 +424,9 @@ void editorAppendRow(char *s, size_t len) {
 /*** file i/o ***/
 
 void editorOpen(const char *filename) {
+  free(E.filename);
+  E.filename = strdup(filename);
+
   FILE *f = fopen(filename, "r");
   if (!f)
     die("fopen");
@@ -518,15 +537,33 @@ void editorDrawRows(AppendBuffer *ab) {
 }
 
 void editorDrawStatusBar(AppendBuffer *ab) {
-  abAppend(ab, INVERTED_COLORS, INVERTED_COLORS_SZ);
+  abAppend(ab, COLORS_INVERT_ON, COLORS_INVERT_ON_SZ);
   uint16_t len = 0;
+
+  // TODO: Improve this setup
+  abAppend(ab, " ", 1);
+  len++;
+
+  abAppend(ab, COLORS_BOLD_ON, COLORS_BOLD_ON_SZ);
+
+  const char *mode = mode_str[E.mode];
+  abAppend(ab, mode, strlen(mode));
+  len += strlen(mode);
+
+  abAppend(ab, COLORS_BOLD_OFF, COLORS_BOLD_OFF_SZ);
+
+  abAppend(ab, " ", 1);
+  len++;
+
+  abAppend(ab, E.filename, strlen(E.filename));
+  len += strlen(E.filename);
 
   while (len < E.screencols) {
     abAppend(ab, " ", 1);
     len++;
   }
 
-  abAppend(ab, CLEAR_COLORS, CLEAR_COLORS_SZ);
+  abAppend(ab, COLORS_ALL_OFF, COLORS_ALL_OFF_SZ);
 }
 
 void editorRefreshScreen(void) {
@@ -689,6 +726,8 @@ void initEditor(DLogger *l) {
   E.coloff = 0;
   E.numrows = 0;
   E.row = NULL;
+  E.filename = NULL;
+  E.mode = NORMAL_MODE;
 
   enableRawMode();
 
