@@ -438,7 +438,6 @@ void editorOpen(const char *filename) {
   ssize_t linelen;
 
   while ((linelen = getline(&line, &linecap, f)) != -1) {
-    dlog_debug(E.logger, "read line of len = %d, cap = %d", linelen, linecap);
     while (linelen > 0 &&
            (line[linelen - 1] == '\n' || line[linelen - 1] == '\r'))
       linelen--;
@@ -540,24 +539,31 @@ void editorDrawRows(AppendBuffer *ab) {
 
 void editorDrawStatusBar(AppendBuffer *ab) {
   abAppend(ab, COLORS_INVERT_ON, COLORS_INVERT_ON_SZ);
-  // uint16_t len = 0;
-
   char status[80];
+  char rstatus[80];
+
   // TODO: Update E.cy to E.ry if and when rendered y is different from cy
-  int len = snprintf(status, sizeof(status), " %s%s%s %.20s - %d:%d",
-                     COLORS_BOLD_ON, mode_str[E.mode], COLORS_BOLD_OFF,
-                     E.filename ? E.filename : "[No Name]", E.rx + 1, E.cy + 1);
+  int len = snprintf(status, sizeof(status), " %s%s%s %.20s", COLORS_BOLD_ON,
+                     mode_str[E.mode], COLORS_BOLD_OFF,
+                     E.filename ? E.filename : "[No Name]");
+
+  // Remove not visible chars from count
+  int vizlen = len - (COLORS_BOLD_ON_SZ + COLORS_BOLD_OFF_SZ);
+
+  int rlen = snprintf(rstatus, sizeof(rstatus), "%d:%d ", E.cy + 1, E.rx + 1);
 
   // Handle overflow of the statusbar content
-  if (len > E.screencols)
-    len = E.screencols;
+  if (vizlen > E.screencols)
+    vizlen = E.screencols;
   abAppend(ab, status, len);
 
   // Fill the rest of the statusbar with spaces
-  while (len < E.screencols) {
+  while (vizlen < (E.screencols - rlen)) {
     abAppend(ab, " ", 1);
-    len++;
+    vizlen++;
   }
+
+  abAppend(ab, rstatus, rlen);
 
   abAppend(ab, COLORS_ALL_OFF, COLORS_ALL_OFF_SZ);
 }
@@ -738,6 +744,8 @@ void initEditor(DLogger *l) {
 
   if (getWindowSize(&E.screenrows, &E.screencols) == -1)
     die("getWindowSize");
+
+  dlog_debug(E.logger, "Screen size: %d x %d", E.screenrows, E.screencols);
 
   // Make space for status bar
   E.screenrows -= 1;
