@@ -1,5 +1,6 @@
 #include <ctype.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <stdarg.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -91,19 +92,6 @@ static const char *const mode_str[] = {
     [COMMAND_MODE] = "COMMAND",
 };
 
-enum arrowKeys {
-  ARROW_UP = 1000,
-  ARROW_DOWN,
-  ARROW_LEFT,
-  ARROW_RIGHT,
-  HOME_KEY,
-  INSERT_KEY,
-  DELETE_KEY,
-  END_KEY,
-  PAGE_UP,
-  PAGE_DOWN,
-};
-
 enum editorCommands {
   CMD_GO_TOP_DOC = 2000,
   CMD_GO_BOTTOM_DOC,
@@ -124,6 +112,17 @@ enum keys {
   KEY_k = 'k',
   KEY_l = 'l',
   KEY_v = 'v',
+  KEY_BACKSPACE = 127,
+  ARROW_UP = 1000,
+  ARROW_DOWN,
+  ARROW_LEFT,
+  ARROW_RIGHT,
+  HOME_KEY,
+  INSERT_KEY,
+  DELETE_KEY,
+  END_KEY,
+  PAGE_UP,
+  PAGE_DOWN,
 };
 
 /*** data ***/
@@ -466,6 +465,25 @@ void editorInsertChar(int c) {
 
 /*** file i/o ***/
 
+char *editorRowsToString(int *buflen) {
+  int totlen = 0;
+  for (uint32_t j = 0; j < E.numrows; j++) {
+    totlen += E.row[j].size + 1;
+  }
+  *buflen = totlen;
+
+  char *buf = malloc(totlen);
+  char *p = buf;
+  for (uint32_t j = 0; j < E.numrows; j++) {
+    memcpy(p, E.row[j].chars, E.row[j].size);
+    p += E.row[j].size;
+    *p = '\n';
+    p++;
+  }
+
+  return buf;
+}
+
 void editorOpen(const char *filename) {
   free(E.filename);
   E.filename = strdup(filename);
@@ -488,6 +506,20 @@ void editorOpen(const char *filename) {
 
   free(line);
   fclose(f);
+}
+
+int editorSave(void) {
+  if (E.filename == NULL)
+    return 1;
+
+  int len;
+  char *buf = editorRowsToString(&len);
+  int fd = open(E.filename, O_RDWR | O_CREAT, 0644);
+  ftruncate(fd, len);
+  write(fd, buf, len);
+  free(buf);
+
+  return 0;
 }
 
 /*** append buffer ***/
@@ -761,6 +793,10 @@ void editorProcessKeypressNormalMode(int c) {
     write(STDOUT_FILENO, REPOS_CURSOR, REPOS_CURSOR_SZ);
     exit(0);
     break;
+  case CTRL_KEY('s'):
+    if (editorSave() == 0)
+      editorSetStatusMessage("File saved in %s", E.filename);
+    break;
   case KEY_ESC:
     editorChangeMode(NORMAL_MODE);
     break;
@@ -809,6 +845,15 @@ void editorProcessKeypressInsertMode(int c) {
   switch (c) {
   case KEY_ESC:
     editorChangeMode(NORMAL_MODE);
+    break;
+  case '\r':
+    break;
+  case KEY_BACKSPACE:
+  case CTRL_KEY('h'):
+  case DELETE_KEY:
+    break;
+  case CTRL_KEY('l'):
+    // case '\x1b':
     break;
   default:
     editorInsertChar(c);
