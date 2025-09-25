@@ -580,9 +580,12 @@ void editorDrawStatusBar(AppendBuffer *ab) {
   // Visible chars counting
   int vizlen = len - nonprintable;
 
+  // Use full terminal width for statusbar (add back line number width)
+  int fullwidth = E.screencols + editorGetLineNumberWidth();
+
   // Handle overflow of the statusbar content
-  if (vizlen > E.screencols)
-    vizlen = E.screencols;
+  if (vizlen > fullwidth)
+    vizlen = fullwidth;
 
   // Assumption: I append the statusbar, but if too long, truncate it,
   // remembering to add the nonprintable chars of the mode, which we assume are
@@ -590,7 +593,7 @@ void editorDrawStatusBar(AppendBuffer *ab) {
   abAppend(ab, status, vizlen + nonprintable);
 
   // Fill the rest of the statusbar with spaces
-  while (vizlen < (E.screencols - rlen)) {
+  while (vizlen + rlen < fullwidth) {
     abAppend(ab, " ", 1);
     vizlen++;
   }
