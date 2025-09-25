@@ -440,6 +440,30 @@ void editorAppendRow(char *s, size_t len) {
   E.numrows++;
 }
 
+void editorRowInsertChar(Row *row, uint32_t at, int c) {
+  if (at < 0 || at > row->size)
+    at = row->size;
+  // Make space for 1 char + NULL terminator
+  row->chars = realloc(row->chars, row->size + 2);
+  // Like realloc but safe when src/dest can overlap
+  memmove(&row->chars[at + 1], &row->chars[at], row->size - at + 1);
+  row->size++;
+  row->chars[at] = c;
+  // Update render and rsize with the new row content
+  editorUpdateRow(row);
+}
+
+/*** editor operations ***/
+
+void editorInsertChar(int c) {
+  // EOF, add new row
+  if (E.cy == E.numrows) {
+    editorAppendRow("", 0);
+  }
+  editorRowInsertChar(&E.row[E.cy], E.cx, c);
+  E.cx++;
+}
+
 /*** file i/o ***/
 
 void editorOpen(const char *filename) {
@@ -728,15 +752,11 @@ void editorMoveCursor(int key) {
 
 void destroyEditor(void) { dlog_close(E.logger); }
 
-void editorProcessKeypress(void) {
-  int c = editorReadKey();
+void editorProcessKeypressNormalMode(int c) {
   int cc = 0;
-
-  dlog_debug(E.logger, "Pressed '%c' (%d)", c, c);
 
   switch (c) {
   case CTRL_KEY('c'):
-  case CTRL_KEY('q'):
     write(STDOUT_FILENO, CLEAR_SCREEN, CLEAR_SCREEN_SZ);
     write(STDOUT_FILENO, REPOS_CURSOR, REPOS_CURSOR_SZ);
     exit(0);
@@ -782,6 +802,62 @@ void editorProcessKeypress(void) {
       dlog_debug(E.logger, "no sequence for '%c%c'", c, cc);
       break;
     }
+  }
+}
+
+void editorProcessKeypressInsertMode(int c) {
+  switch (c) {
+  case KEY_ESC:
+    editorChangeMode(NORMAL_MODE);
+    break;
+  default:
+    editorInsertChar(c);
+    break;
+  }
+}
+
+void editorProcessKeypressVisualMode(int c) {
+  switch (c) {
+  case KEY_ESC:
+    editorChangeMode(NORMAL_MODE);
+    break;
+  default:
+    editorInsertChar(c);
+    break;
+  }
+}
+
+void editorProcessKeypressCommandMode(int c) {
+  switch (c) {
+  case KEY_ESC:
+    editorChangeMode(NORMAL_MODE);
+    break;
+  default:
+    editorInsertChar(c);
+    break;
+  }
+}
+
+void editorProcessKeypress(void) {
+  int c = editorReadKey();
+  dlog_debug(E.logger, "Pressed '%c' (%d)", c, c);
+
+  switch (E.mode) {
+  case NORMAL_MODE:
+    editorProcessKeypressNormalMode(c);
+    break;
+  case INSERT_MODE:
+    editorProcessKeypressInsertMode(c);
+    break;
+  case VISUAL_MODE:
+    editorProcessKeypressVisualMode(c);
+    break;
+  case COMMAND_MODE:
+    editorProcessKeypressCommandMode(c);
+    break;
+  default:
+    editorSetStatusMessage("%s mode not handled yet", mode_str[E.mode]);
+    break;
   }
 }
 
