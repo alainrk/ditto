@@ -19,6 +19,7 @@
 #define DITTO_VERSION "v0.0.0"
 #define DITTO_TAB_STOP 2
 #define DITTO_LINENO_ENABLED 1
+#define DITTO_STATUSMSG_SEC 5
 
 #define UNUSED(x) (void)(x);
 
@@ -162,6 +163,10 @@ typedef struct {
   enum editorMode mode;
   // Currently open filename
   char *filename;
+  // Status message
+  char statusmsg[80];
+  // Status message time
+  time_t statusmsg_time;
   // Terminal status
   struct termios orig_termios;
 } EditorConfig;
@@ -593,6 +598,17 @@ void editorDrawStatusBar(AppendBuffer *ab) {
   abAppend(ab, rstatus, rlen);
 
   abAppend(ab, COLORS_ALL_OFF, COLORS_ALL_OFF_SZ);
+  abAppend(ab, "\r\n", 2);
+}
+
+void editorDrawMessageBar(AppendBuffer *ab) {
+  abAppend(ab, ERASE_LINE_RIGHT, ERASE_LINE_RIGHT_SZ);
+  int msglen = strlen(E.statusmsg);
+  if (msglen > E.screencols)
+    msglen = E.screencols;
+  if (msglen && time(NULL) - E.statusmsg_time < DITTO_STATUSMSG_SEC) {
+    abAppend(ab, E.statusmsg, msglen);
+  }
 }
 
 void editorRefreshScreen(void) {
@@ -607,6 +623,7 @@ void editorRefreshScreen(void) {
 
   editorDrawRows(&ab);
   editorDrawStatusBar(&ab);
+  editorDrawMessageBar(&ab);
 
   char buf[32];
   snprintf(buf, sizeof(buf), "\x1b[%d;%dH", (E.cy - E.rowoff) + 1,
@@ -619,6 +636,15 @@ void editorRefreshScreen(void) {
 
   write(STDOUT_FILENO, ab.b, ab.len);
   abFree(&ab);
+}
+
+void editorSetStatusMessage(const char *fmt, ...) {
+  va_list ap;
+  va_start(ap, fmt);
+
+  vsnprintf(E.statusmsg, sizeof(E.statusmsg), fmt, ap);
+  va_end(ap);
+  E.statusmsg_time = time(NULL);
 }
 
 /*** input ***/
@@ -769,6 +795,8 @@ void initEditor(DLogger *l) {
   E.numrows = 0;
   E.row = NULL;
   E.filename = NULL;
+  E.statusmsg[0] = '\0';
+  E.statusmsg_time = 0;
   E.mode = NORMAL_MODE;
 
   enableRawMode();
@@ -783,8 +811,8 @@ void initEditor(DLogger *l) {
   // Make space for the line numbers
   E.screencols -= editorGetLineNumberWidth();
 
-  // Make space for status bar
-  E.screenrows -= 1;
+  // Make space for status bar and status message
+  E.screenrows -= 2;
 
   atexit(destroyEditor);
 }
@@ -802,6 +830,8 @@ int main(int argc, char *argv[]) {
   if (argc >= 2) {
     editorOpen(argv[1]);
   }
+
+  editorSetStatusMessage("HELP: Ctrl-C to quit");
 
   while (1) {
     editorRefreshScreen();
