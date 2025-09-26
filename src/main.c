@@ -491,6 +491,7 @@ void editorOpen(const char *filename) {
   FILE *f = fopen(filename, "a+");
   if (!f)
     die("fopen");
+  fseek(f, 0, SEEK_SET);
 
   char *line = NULL;
   size_t linecap = 0;
