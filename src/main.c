@@ -517,18 +517,18 @@ int editorSave(void) {
 
   int fd = open(E.filename, O_RDWR | O_CREAT, 0644);
   if (fd == -1) {
-    if (ftruncate(fd, len) != -1) {
-      if (write(fd, buf, len) == len) {
-        close(fd);
-        free(buf);
-        return 1;
-      }
-    }
-    close(fd);
+    dlog_debug(E.logger, "Could not save file %s", E.filename);
+    free(buf);
+    return 1;
   }
 
+  int err = ftruncate(fd, len);
+  if (!err)
+    err = (write(fd, buf, len) != len);
+
+  close(fd);
   free(buf);
-  return 0;
+  return err;
 }
 
 /*** append buffer ***/
@@ -591,7 +591,7 @@ void editorDrawRows(AppendBuffer *ab) {
     uint16_t filerow = y + E.rowoff;
 
     // Print the line number
-    if (DITTO_LINENO_ENABLED && filerow < E.numrows) {
+    if ((DITTO_LINENO_ENABLED && filerow < E.numrows) || filerow == 0) {
       char line[16];
       snprintf(line, sizeof(line), "%4d ", filerow + 1);
       abAppend(ab, line, strlen(line));
@@ -864,10 +864,11 @@ void editorProcessKeypressInsertMode(int c) {
   case CTRL_KEY('l'):
     // case '\x1b':
     break;
-    // For any other ctrl- I want to skip
-
   default:
-    editorInsertChar(c);
+    // Only insert printable characters (ASCII 32-126)
+    if (c >= 32 && c <= 126) {
+      editorInsertChar(c);
+    }
     break;
   }
 }
