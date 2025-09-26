@@ -488,7 +488,7 @@ void editorOpen(const char *filename) {
   free(E.filename);
   E.filename = strdup(filename);
 
-  FILE *f = fopen(filename, "r");
+  FILE *f = fopen(filename, "a+");
   if (!f)
     die("fopen");
 
@@ -514,11 +514,20 @@ int editorSave(void) {
 
   int len;
   char *buf = editorRowsToString(&len);
-  int fd = open(E.filename, O_RDWR | O_CREAT, 0644);
-  ftruncate(fd, len);
-  write(fd, buf, len);
-  free(buf);
 
+  int fd = open(E.filename, O_RDWR | O_CREAT, 0644);
+  if (fd == -1) {
+    if (ftruncate(fd, len) != -1) {
+      if (write(fd, buf, len) == len) {
+        close(fd);
+        free(buf);
+        return 1;
+      }
+    }
+    close(fd);
+  }
+
+  free(buf);
   return 0;
 }
 
@@ -855,6 +864,8 @@ void editorProcessKeypressInsertMode(int c) {
   case CTRL_KEY('l'):
     // case '\x1b':
     break;
+    // For any other ctrl- I want to skip
+
   default:
     editorInsertChar(c);
     break;
@@ -944,7 +955,7 @@ void initEditor(DLogger *l) {
 /*** main ***/
 
 int main(int argc, char *argv[]) {
-  FILE *f = fopen("/tmp/dittolog.txt", "a");
+  FILE *f = fopen("/tmp/dittolog.txt", "a+");
   if (f == NULL)
     die("fopen");
   DLogger *l = dlog_initf(f, DLOG_LEVEL_DEBUG);
