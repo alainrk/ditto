@@ -1,6 +1,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <signal.h>
 #include <stdarg.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -168,6 +169,8 @@ typedef struct {
   time_t statusmsg_time;
   // Terminal status
   struct termios orig_termios;
+  // Screen resize flag
+  volatile sig_atomic_t screen_resized;
 } EditorConfig;
 
 EditorConfig E;
@@ -185,6 +188,11 @@ void die(const char *s) {
 
   perror(s);
   exit(1);
+}
+
+void handleResize(int sig) {
+  UNUSED(sig);
+  E.screen_resized = 1;
 }
 
 /*** terminal ***/
@@ -377,6 +385,29 @@ int editorGetLineNumberWidth(void) {
   if (!DITTO_LINENO_ENABLED)
     return 0;
   return 5; // "9999 " format (4 digits + space)
+}
+
+void updateScreenSize(void) {
+  if (getWindowSize(&E.screenrows, &E.screencols) == -1)
+    die("getWindowSize");
+
+  dlog_debug(E.logger, "Screen resized to: %d x %d", E.screenrows,
+             E.screencols);
+
+  // Make space for the line numbers
+  E.screencols -= editorGetLineNumberWidth();
+
+  // Make space for status bar and status message
+  E.screenrows -= 2;
+
+  // Validate cursor position after resize
+  if (E.cy >= E.screenrows + E.rowoff) {
+    E.rowoff = E.cy - E.screenrows + 1;
+  }
+
+  if (E.rx >= E.screencols + E.coloff) {
+    E.coloff = E.rx - E.screencols + 1;
+  }
 }
 
 /*** row operations ***/
@@ -683,6 +714,12 @@ void editorDrawMessageBar(AppendBuffer *ab) {
 void editorRefreshScreen(void) {
   AppendBuffer ab = ABUF_INIT;
 
+  // Handle screen resize
+  if (E.screen_resized) {
+    updateScreenSize();
+    E.screen_resized = 0;
+  }
+
   editorScroll();
 
   // To avoid cursor flickering, hide the cursor before clearing the screen
@@ -935,8 +972,12 @@ void initEditor(DLogger *l) {
   E.statusmsg[0] = '\0';
   E.statusmsg_time = 0;
   E.mode = NORMAL_MODE;
+  E.screen_resized = 0;
 
   enableRawMode();
+
+  // Set up signal handler for window resize
+  signal(SIGWINCH, handleResize);
 
   dlog_info(E.logger, "Welcome to Ditto Editor %s!", DITTO_VERSION);
 
