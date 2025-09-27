@@ -197,6 +197,15 @@ void handleResize(int sig) {
 
 /*** terminal ***/
 
+void editorSetStatusMessage(const char *fmt, ...) {
+  va_list ap;
+  va_start(ap, fmt);
+
+  vsnprintf(E.statusmsg, sizeof(E.statusmsg), fmt, ap);
+  va_end(ap);
+  E.statusmsg_time = time(NULL);
+}
+
 void disableRawMode(void) {
   if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &E.orig_termios) == -1)
     die("tcsetattr");
@@ -550,6 +559,7 @@ int editorSave(void) {
   int fd = open(E.filename, O_RDWR | O_CREAT, 0644);
   if (fd == -1) {
     dlog_debug(E.logger, "Could not save file %s", E.filename);
+    editorSetStatusMessage("Could not save file %s", E.filename);
     free(buf);
     return 1;
   }
@@ -557,6 +567,9 @@ int editorSave(void) {
   int err = ftruncate(fd, len);
   if (!err)
     err = (write(fd, buf, len) != len);
+
+  if (!err)
+    editorSetStatusMessage("%d bytes written to %s", len, E.filename);
 
   close(fd);
   free(buf);
@@ -744,15 +757,6 @@ void editorRefreshScreen(void) {
   abFree(&ab);
 }
 
-void editorSetStatusMessage(const char *fmt, ...) {
-  va_list ap;
-  va_start(ap, fmt);
-
-  vsnprintf(E.statusmsg, sizeof(E.statusmsg), fmt, ap);
-  va_end(ap);
-  E.statusmsg_time = time(NULL);
-}
-
 /*** input ***/
 
 void editorChangeMode(enum editorMode mode) { E.mode = mode; }
@@ -841,8 +845,7 @@ void editorProcessKeypressNormalMode(int c) {
     exit(0);
     break;
   case CTRL_KEY('s'):
-    if (editorSave() == 0)
-      editorSetStatusMessage("File saved in %s", E.filename);
+    editorSave();
     break;
   case KEY_ESC:
     editorChangeMode(NORMAL_MODE);
