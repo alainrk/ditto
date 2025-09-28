@@ -1015,7 +1015,7 @@ int main(int argc, char *argv[]) {
     editorOpen(argv[1]);
   }
 
-  editorSetStatusMessage("HELP: Ctrl-C to quit");
+  editorSetStatusMessage("Ctrl-C to quit. Ctrl-S to save.");
 
   while (1) {
     editorRefreshScreen();
