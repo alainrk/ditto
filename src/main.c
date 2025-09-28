@@ -898,6 +898,9 @@ void editorProcessKeypressInsertMode(int c) {
     break;
   case '\r':
     break;
+  case CTRL_KEY('s'):
+    editorSave();
+    break;
   case KEY_BACKSPACE:
   case CTRL_KEY('h'):
   case DELETE_KEY:
