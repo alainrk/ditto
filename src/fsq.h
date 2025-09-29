@@ -8,6 +8,7 @@
 
 typedef struct FSQItem {
   void *data;
+  size_t size;
   struct FSQItem *next;
   struct FSQItem *prev;
 
@@ -21,8 +22,8 @@ typedef struct FixedSizeQueue {
 
 FixedSizeQueue *fsq_create(size_t cap);
 void fsq_destroy(FixedSizeQueue *q);
-void fsq_push(FixedSizeQueue *q, const void *data, size_t len);
-void *fsq_pop(FixedSizeQueue *q);
+int fsq_push(FixedSizeQueue *q, const void *data, size_t size);
+void *fsq_pop(FixedSizeQueue *q, size_t *size);
 void *fsq_peek(FixedSizeQueue *q, size_t n);
 size_t fsq_size(FixedSizeQueue *q);
 bool fsq_empty(FixedSizeQueue *q);
