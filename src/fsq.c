@@ -1,7 +1,9 @@
 #include "fsq.h"
 #include <errno.h>
 #include <limits.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 FixedSizeQueue *fsq_create(size_t cap) {
   if (cap == 0) {
@@ -26,7 +28,7 @@ FixedSizeQueue *fsq_create(size_t cap) {
       fsq_destroy(q);
       return NULL;
     }
-    new->element = NULL;
+    new->data = NULL;
     new->next = NULL;
     new->prev = prev;
 
@@ -57,7 +59,7 @@ void fsq_destroy(FixedSizeQueue *q) {
   FSQItem *curr = q->head;
   while (curr) {
     FSQItem *next = curr->next;
-    free(curr->element);
+    free(curr->data);
     free(curr);
     curr = next;
   }
@@ -65,7 +67,31 @@ void fsq_destroy(FixedSizeQueue *q) {
   free(q);
 }
 
-void fsq_push(FixedSizeQueue *q, void *element) {}
+// Pushes a new element to the queue.
+// The head will always point to the next data to be filled/overwritten, so when
+// a new element is inserted, if the head is busy already, it means we need to
+// clean up the old one and insert the new one. In any case, we move the head
+// one place further.
+void fsq_push(FixedSizeQueue *q, const void *data, size_t len) {
+  // Clean up if busy
+  if (q->head->data) {
+    free(q->head->data);
+  } else {
+    // Otherwise we can increment the len counter
+    q->len++;
+  }
+
+  // Insert new data
+  q->head->data = malloc(len);
+  if (!q->head->data) {
+    perror("malloc newfsq item");
+    exit(1);
+  }
+  memcpy(q->head->data, data, len);
+
+  // Move the head next
+  q->head = q->head->next;
+}
 
 int main(void) {
   FixedSizeQueue *q = fsq_create(10);
