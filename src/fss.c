@@ -176,36 +176,36 @@ void *fss_peek(FixedSizeStack *q, size_t n, size_t *size) {
 }
 
 // Testing function
-int main(void) {
-  size_t qlen = 10;
-  FixedSizeStack *q = fss_create(qlen);
-
-  for (int i = 0; i < qlen + 5; i++) {
-    char *s = malloc(50);
-    sprintf(s, "element %d", i);
-    fss_push(q, s, strlen(s));
-    free(s);
-  }
-
-  for (int i = 0; i < qlen + 2; i++) {
-    size_t len;
-    char *s = fss_peek(q, i, &len);
-    if (!s) {
-      printf("NULL - break\n");
-      break;
-    }
-    printf("peeked: %s, len: %zu, q->len = %zu\n", s, len, q->len);
-    free(s);
-  }
-
-  for (int i = 0; i < qlen; i++) {
-    size_t len;
-    char *s = fss_pop(q, &len);
-    if (!s)
-      break;
-    printf("popped: %s, q->len = %zu\n", s, q->len);
-    free(s);
-  }
-
-  return 0;
-}
+// int main(void) {
+//   size_t qlen = 10;
+//   FixedSizeStack *q = fss_create(qlen);
+//
+//   for (int i = 0; i < qlen + 5; i++) {
+//     char *s = malloc(50);
+//     sprintf(s, "element %d", i);
+//     fss_push(q, s, strlen(s));
+//     free(s);
+//   }
+//
+//   for (int i = 0; i < qlen + 2; i++) {
+//     size_t len;
+//     char *s = fss_peek(q, i, &len);
+//     if (!s) {
+//       printf("NULL - break\n");
+//       break;
+//     }
+//     printf("peeked: %s, len: %zu, q->len = %zu\n", s, len, q->len);
+//     free(s);
+//   }
+//
+//   for (int i = 0; i < qlen; i++) {
+//     size_t len;
+//     char *s = fss_pop(q, &len);
+//     if (!s)
+//       break;
+//     printf("popped: %s, q->len = %zu\n", s, q->len);
+//     free(s);
+//   }
+//
+//   return 0;
+// }

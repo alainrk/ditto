@@ -15,6 +15,7 @@
 #include <unistd.h>
 
 #include "dlogger.h"
+#include "fss.h"
 
 /*** defines ***/
 
@@ -163,6 +164,8 @@ typedef struct {
   enum editorMode mode;
   // Currently open filename
   char *filename;
+  // Status messages stack
+  FixedSizeStack *messages;
   // Status message
   char statusmsg[80];
   // Status message time
@@ -201,9 +204,11 @@ void editorSetStatusMessage(const char *fmt, ...) {
   va_list ap;
   va_start(ap, fmt);
 
-  vsnprintf(E.statusmsg, sizeof(E.statusmsg), fmt, ap);
+  int len = vsnprintf(E.statusmsg, sizeof(E.statusmsg), fmt, ap);
   va_end(ap);
   E.statusmsg_time = time(NULL);
+
+  fss_push(E.messages, E.statusmsg, len);
 }
 
 void disableRawMode(void) {
@@ -979,6 +984,8 @@ void initEditor(DLogger *l) {
   E.statusmsg_time = 0;
   E.mode = NORMAL_MODE;
   E.screen_resized = 0;
+
+  E.messages = fss_create(10);
 
   enableRawMode();
 
