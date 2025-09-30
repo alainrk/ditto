@@ -160,6 +160,8 @@ typedef struct {
   uint32_t numrows;
   // Editor rows
   Row *row;
+  // Dirty flag indicates if buffer has changes not yet saved
+  int dirty;
   // Current mode
   enum editorMode mode;
   // Currently open filename
@@ -482,6 +484,7 @@ void editorAppendRow(char *s, size_t len) {
   editorUpdateRow(&E.row[at]);
 
   E.numrows++;
+  E.dirty++;
 }
 
 void editorRowInsertChar(Row *row, uint32_t at, int c) {
@@ -495,6 +498,7 @@ void editorRowInsertChar(Row *row, uint32_t at, int c) {
   row->chars[at] = c;
   // Update render and rsize with the new row content
   editorUpdateRow(row);
+  E.dirty++;
 }
 
 /*** editor operations ***/
@@ -552,6 +556,7 @@ void editorOpen(const char *filename) {
 
   free(line);
   fclose(f);
+  E.dirty = 0;
 }
 
 int editorSave(void) {
@@ -578,6 +583,7 @@ int editorSave(void) {
 
   close(fd);
   free(buf);
+  E.dirty = 0;
   return err;
 }
 
@@ -682,9 +688,10 @@ void editorDrawStatusBar(AppendBuffer *ab) {
   char status[80];
   char rstatus[80];
 
-  int len = snprintf(status, sizeof(status), " %s%s%s %.20s", COLORS_BOLD_ON,
+  int len = snprintf(status, sizeof(status), " %s%s%s %.20s %s", COLORS_BOLD_ON,
                      mode_str[E.mode], COLORS_BOLD_OFF,
-                     E.filename ? E.filename : "[No Name]");
+                     E.filename ? E.filename : "[No Name]",
+                     E.dirty ? "(edited)" : "");
 
   int rlen = snprintf(rstatus, sizeof(rstatus), "%d:%d ", E.cy + 1, E.rx + 1);
 
@@ -979,6 +986,7 @@ void initEditor(DLogger *l) {
   E.coloff = 0;
   E.numrows = 0;
   E.row = NULL;
+  E.dirty = 0;
   E.filename = NULL;
   E.statusmsg[0] = '\0';
   E.statusmsg_time = 0;

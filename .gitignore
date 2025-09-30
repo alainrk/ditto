@@ -49,6 +49,7 @@
 
 # IDE specific files
 .vscode/
+.serena/
 .idea/
 *.swp
 *.swo
