@@ -1,10 +1,10 @@
-#ifndef fsq_h
-#define fsq_h
+#ifndef fss_h
+#define fss_h
 
 #include <stdbool.h>
 #include <stddef.h>
 
-#define FSQ_DEFAULT_CAP 32
+#define FSS_DEFAULT_CAP 32
 
 typedef struct FSSItem {
   void *data;
@@ -20,12 +20,12 @@ typedef struct FixedSizeStack {
   FSSItem *head;
 } FixedSizeStack;
 
-FixedSizeStack *fsq_create(size_t cap);
-void fsq_destroy(FixedSizeStack *q);
-int fsq_push(FixedSizeStack *q, const void *data, size_t size);
-void *fsq_pop(FixedSizeStack *q, size_t *size);
-void *fsq_peek(FixedSizeStack *q, size_t n, size_t *size);
-size_t fsq_size(FixedSizeStack *q);
-bool fsq_empty(FixedSizeStack *q);
+FixedSizeStack *fss_create(size_t cap);
+void fss_destroy(FixedSizeStack *q);
+int fss_push(FixedSizeStack *q, const void *data, size_t size);
+void *fss_pop(FixedSizeStack *q, size_t *size);
+void *fss_peek(FixedSizeStack *q, size_t n, size_t *size);
+size_t fss_size(FixedSizeStack *q);
+bool fss_empty(FixedSizeStack *q);
 
 #endif

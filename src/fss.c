@@ -1,4 +1,4 @@
-#include "fsq.h"
+#include "fss.h"
 #include <errno.h>
 #include <limits.h>
 #include <stddef.h>
@@ -6,9 +6,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-FixedSizeStack *fsq_create(size_t cap) {
+FixedSizeStack *fss_create(size_t cap) {
   if (cap == 0) {
-    cap = FSQ_DEFAULT_CAP;
+    cap = FSS_DEFAULT_CAP;
   }
 
   FixedSizeStack *q = malloc(sizeof(FixedSizeStack));
@@ -26,7 +26,7 @@ FixedSizeStack *fsq_create(size_t cap) {
     FSSItem *new = malloc(sizeof(FSSItem));
     if (!new) {
       // TODO: destroy should support broken structure
-      fsq_destroy(q);
+      fss_destroy(q);
       return NULL;
     }
     new->data = NULL;
@@ -50,7 +50,7 @@ FixedSizeStack *fsq_create(size_t cap) {
   return q;
 }
 
-void fsq_destroy(FixedSizeStack *q) {
+void fss_destroy(FixedSizeStack *q) {
   if (!q)
     return;
 
@@ -75,7 +75,7 @@ void fsq_destroy(FixedSizeStack *q) {
 // clean up the old one and insert the new one. In any case, we move the head
 // one place further.
 // Returns -1 if there is an error (check errno), 0 otherwise.
-int fsq_push(FixedSizeStack *q, const void *data, size_t size) {
+int fss_push(FixedSizeStack *q, const void *data, size_t size) {
   if (!q)
     return -1;
 
@@ -104,7 +104,7 @@ int fsq_push(FixedSizeStack *q, const void *data, size_t size) {
 }
 
 // Pops an element from the queue. If the queue is empty, returns NULL.
-void *fsq_pop(FixedSizeStack *q, size_t *size) {
+void *fss_pop(FixedSizeStack *q, size_t *size) {
   if (!q)
     return NULL;
 
@@ -131,13 +131,13 @@ void *fsq_pop(FixedSizeStack *q, size_t *size) {
   return data;
 }
 
-bool fsq_empty(FixedSizeStack *q) { return q->len == 0; }
+bool fss_empty(FixedSizeStack *q) { return q->len == 0; }
 
-size_t fsq_size(FixedSizeStack *q) { return q->len; }
+size_t fss_size(FixedSizeStack *q) { return q->len; }
 
 // Peeks the nth element from the queue, NULL otherwise.
 // n = 0 means peeking the first element.
-void *fsq_peek(FixedSizeStack *q, size_t n, size_t *size) {
+void *fss_peek(FixedSizeStack *q, size_t n, size_t *size) {
   if (!q)
     return NULL;
 
@@ -178,18 +178,18 @@ void *fsq_peek(FixedSizeStack *q, size_t n, size_t *size) {
 // Testing function
 int main(void) {
   size_t qlen = 10;
-  FixedSizeStack *q = fsq_create(qlen);
+  FixedSizeStack *q = fss_create(qlen);
 
   for (int i = 0; i < qlen + 5; i++) {
     char *s = malloc(50);
     sprintf(s, "element %d", i);
-    fsq_push(q, s, strlen(s));
+    fss_push(q, s, strlen(s));
     free(s);
   }
 
   for (int i = 0; i < qlen + 2; i++) {
     size_t len;
-    char *s = fsq_peek(q, i, &len);
+    char *s = fss_peek(q, i, &len);
     if (!s) {
       printf("NULL - break\n");
       break;
@@ -200,7 +200,7 @@ int main(void) {
 
   for (int i = 0; i < qlen; i++) {
     size_t len;
-    char *s = fsq_pop(q, &len);
+    char *s = fss_pop(q, &len);
     if (!s)
       break;
     printf("popped: %s, q->len = %zu\n", s, q->len);
