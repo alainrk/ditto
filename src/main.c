@@ -108,6 +108,7 @@ enum keys {
   KEY_J = 'J',
   KEY_K = 'K',
   KEY_L = 'L',
+  KEY_X = 'X',
   KEY_g = 'g',
   KEY_h = 'h',
   KEY_i = 'i',
@@ -115,6 +116,7 @@ enum keys {
   KEY_k = 'k',
   KEY_l = 'l',
   KEY_v = 'v',
+  KEY_x = 'x',
   KEY_BACKSPACE = 127,
   ARROW_UP = 1000,
   ARROW_DOWN,
@@ -474,7 +476,7 @@ void editorUpdateRow(Row *row) {
 void editorAppendRow(char *s, size_t len) {
   E.row = realloc(E.row, sizeof(Row) * (E.numrows + 1));
 
-  int at = E.numrows;
+  uint32_t at = E.numrows;
   E.row[at].size = len;
   E.row[at].chars = malloc(len + 1);
   memcpy(E.row[at].chars, s, len);
@@ -485,6 +487,20 @@ void editorAppendRow(char *s, size_t len) {
   editorUpdateRow(&E.row[at]);
 
   E.numrows++;
+  E.dirty++;
+}
+
+void editorFreeRow(Row *row) {
+  free(row->render);
+  free(row->chars);
+}
+
+void editorDeleteRow(uint32_t at) {
+  if (at < 0 || at >= E.numrows)
+    return;
+  editorFreeRow(&E.row[at]);
+  memmove(&E.row[at], &E.row[at + 1], sizeof(Row) * (E.numrows - at - 1));
+  E.numrows--;
   E.dirty++;
 }
 
@@ -502,6 +518,15 @@ void editorRowInsertChar(Row *row, uint32_t at, int c) {
   E.dirty++;
 }
 
+void editorRowAppendString(Row *row, char *s, size_t len) {
+  row->chars = realloc(row->chars, row->size + len + 1);
+  memcpy(&row->chars[row->size], s, len);
+  row->size += len;
+  row->chars[row->size] = '\0';
+  editorUpdateRow(row);
+  E.dirty++;
+}
+
 /*** editor operations ***/
 
 void editorInsertChar(int c) {
@@ -511,6 +536,39 @@ void editorInsertChar(int c) {
   }
   editorRowInsertChar(&E.row[E.cy], E.cx, c);
   E.cx++;
+}
+
+void editorRowDeleteChar(Row *row, uint32_t at) {
+  if (at < 0 || at >= row->size)
+    return;
+  memmove(&row->chars[at], &row->chars[at + 1], row->size - at);
+  editorUpdateRow(row);
+  E.dirty--;
+}
+
+void editorDeleteChar(void) {
+  if (E.cy == E.numrows)
+    return;
+
+  // At the beginning of the first line, there's nothing to do
+  if (E.cx == 0 && E.cy == 0)
+    return;
+
+  Row *row = &E.row[E.cy];
+  if (E.cx > 0) {
+    // If there's a character at the left of the cursor, we delete it and move
+    // the cursor to the left
+    editorRowDeleteChar(row, E.cx - 1);
+    E.cx--;
+  } else {
+    // Backspacing at the beginning of the line means we need to merge current
+    // line and previous one, so we append the current line to that and delete
+    // it
+    E.cx = E.row[E.cy - 1].size;
+    editorRowAppendString(&E.row[E.cy - 1], row->chars, row->size);
+    editorDeleteRow(E.cy);
+    E.cy--;
+  }
 }
 
 /*** file i/o ***/
@@ -893,6 +951,13 @@ void editorProcessKeypressNormalMode(int c) {
     editorMoveCursor(c);
     break;
 
+  case KEY_x:
+  case KEY_X:
+    if (c == KEY_x)
+      editorMoveCursor(ARROW_RIGHT);
+    editorDeleteChar();
+    break;
+
   case KEY_G:
     editorMoveCursor(CMD_GO_BOTTOM_DOC);
     break;
@@ -924,8 +989,7 @@ void editorProcessKeypressInsertMode(int c) {
     editorSave();
     break;
   case KEY_BACKSPACE:
-  case CTRL_KEY('h'):
-  case DELETE_KEY:
+    editorDeleteChar();
     break;
   case CTRL_KEY('l'):
     // case '\x1b':
