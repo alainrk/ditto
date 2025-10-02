@@ -22,6 +22,7 @@
 #define DITTO_VERSION "v0.0.0"
 #define DITTO_TAB_STOP 2
 #define DITTO_LINENO_ENABLED 1
+#define DITTO_QUIT_TIMES 2
 #define DITTO_STATUSMSG_SEC 5
 
 #define UNUSED(x) (void)(x);
@@ -848,10 +849,17 @@ void editorMoveCursor(int key) {
 void destroyEditor(void) { dlog_close(E.logger); }
 
 void editorProcessKeypressNormalMode(int c) {
+  static int quit_times = DITTO_QUIT_TIMES;
+
   int cc = 0;
 
   switch (c) {
   case CTRL_KEY('c'):
+    if (E.dirty && quit_times > 1) {
+      editorSetStatusMessage("Unsaved changes. Press Ctrl-C again to quit.");
+      quit_times--;
+      return;
+    }
     write(STDOUT_FILENO, CLEAR_SCREEN, CLEAR_SCREEN_SZ);
     write(STDOUT_FILENO, REPOS_CURSOR, REPOS_CURSOR_SZ);
     exit(0);
@@ -901,6 +909,8 @@ void editorProcessKeypressNormalMode(int c) {
       break;
     }
   }
+
+  quit_times = DITTO_QUIT_TIMES;
 }
 
 void editorProcessKeypressInsertMode(int c) {
