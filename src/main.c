@@ -108,6 +108,7 @@ enum keys {
   KEY_J = 'J',
   KEY_K = 'K',
   KEY_L = 'L',
+  KEY_O = 'O',
   KEY_X = 'X',
   KEY_g = 'g',
   KEY_h = 'h',
@@ -115,6 +116,7 @@ enum keys {
   KEY_j = 'j',
   KEY_k = 'k',
   KEY_l = 'l',
+  KEY_o = 'o',
   KEY_v = 'v',
   KEY_x = 'x',
   KEY_BACKSPACE = 127,
@@ -473,10 +475,13 @@ void editorUpdateRow(Row *row) {
   row->rsize = idx;
 }
 
-void editorAppendRow(char *s, size_t len) {
-  E.row = realloc(E.row, sizeof(Row) * (E.numrows + 1));
+void editorInsertRow(uint32_t at, char *s, size_t len) {
+  if (at < 0 || at > E.numrows)
+    return;
 
-  uint32_t at = E.numrows;
+  E.row = realloc(E.row, sizeof(Row) * (E.numrows + 1));
+  memmove(&E.row[at + 1], &E.row[at], sizeof(Row) * (E.numrows - at));
+
   E.row[at].size = len;
   E.row[at].chars = malloc(len + 1);
   memcpy(E.row[at].chars, s, len);
@@ -532,10 +537,30 @@ void editorRowAppendString(Row *row, char *s, size_t len) {
 void editorInsertChar(int c) {
   // EOF, add new row
   if (E.cy == E.numrows) {
-    editorAppendRow("", 0);
+    editorInsertRow(E.numrows, "", 0);
   }
   editorRowInsertChar(&E.row[E.cy], E.cx, c);
   E.cx++;
+}
+
+void editorInsertNewline(void) {
+  if (E.cx == 0) {
+    // At the beginning of the line, just insert a new line above
+    editorInsertRow(E.cy, "", 0);
+  } else {
+    // Otherwise split the current line and insert with the second part of the
+    // content of the current one below
+    Row *row = &E.row[E.cy];
+    editorInsertRow(E.cy + 1, &row->chars[E.cx], row->size - E.cx);
+    row = &E.row[E.cy];
+    row->size = E.cx;
+    row->chars[row->size] = '\0';
+    editorUpdateRow(row);
+  }
+
+  // Bring the cursor to the newline
+  E.cy++;
+  E.cx = 0;
 }
 
 void editorRowDeleteChar(Row *row, uint32_t at) {
@@ -611,7 +636,7 @@ void editorOpen(const char *filename) {
            (line[linelen - 1] == '\n' || line[linelen - 1] == '\r'))
       linelen--;
 
-    editorAppendRow(line, linelen);
+    editorInsertRow(E.numrows, line, linelen);
   }
 
   free(line);
@@ -959,6 +984,17 @@ void editorProcessKeypressNormalMode(int c) {
     editorDeleteChar();
     break;
 
+  case KEY_O:
+    // TODO: This should only insert the newline above, without splitting
+    // editorInsertNewline(); <- not this
+    // editorChangeMode(INSERT_MODE);
+    break;
+  case KEY_o:
+    // TODO: This should only insert the newline below, without splitting
+    // editorInsertNewline(); <- not this
+    // editorChangeMode(INSERT_MODE);
+    break;
+
   case KEY_G:
     editorMoveCursor(CMD_GO_BOTTOM_DOC);
     break;
@@ -985,6 +1021,7 @@ void editorProcessKeypressInsertMode(int c) {
     editorChangeMode(NORMAL_MODE);
     break;
   case '\r':
+    editorInsertNewline();
     break;
   case CTRL_KEY('s'):
     editorSave();
