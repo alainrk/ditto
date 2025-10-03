@@ -62,6 +62,12 @@
 #define HIDE_CURSOR_SZ 6
 #define SHOW_CURSOR "\x1b[?25h"
 #define SHOW_CURSOR_SZ 6
+// Cursor styles: 1=blinking block, 2=steady block, 3=blinking underline,
+// 4=steady underline, 5=blinking bar, 6=steady bar
+#define CURSOR_BLOCK "\x1b[2 q"
+#define CURSOR_BLOCK_SZ 5
+#define CURSOR_BAR_BLINK "\x1b[5 q"
+#define CURSOR_BAR_BLINK_SZ 5
 // Erase in line, it also takes param (0 [default] = right to cursor, 1 = left
 // to cursor, 2 = all line)
 #define ERASE_LINE_RIGHT "\x1b[K"
@@ -884,7 +890,16 @@ char *editorPrompt(char *prompt) {
   }
 }
 
-void editorChangeMode(enum editorMode mode) { E.mode = mode; }
+void editorChangeMode(enum editorMode mode) {
+  E.mode = mode;
+
+  // Change cursor style based on mode
+  if (mode == INSERT_MODE) {
+    write(STDOUT_FILENO, CURSOR_BAR_BLINK, CURSOR_BAR_BLINK_SZ);
+  } else {
+    write(STDOUT_FILENO, CURSOR_BLOCK, CURSOR_BLOCK_SZ);
+  }
+}
 
 void editorMoveCursor(int key) {
   // Current row can be a valid one or the first "empty" line at the end
