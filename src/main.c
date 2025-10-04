@@ -111,6 +111,8 @@ enum keys {
   KEY_COLON = 58,
   KEY_a = 'a',
   KEY_A = 'A',
+  KEY_d = 'd',
+  KEY_D = 'D',
   KEY_G = 'G',
   KEY_H = 'H',
   KEY_J = 'J',
@@ -1052,6 +1054,19 @@ void editorProcessKeypressNormalMode(int c) {
       editorMoveCursor(ARROW_RIGHT);
     editorDeleteChar();
     break;
+
+  case KEY_d:
+    // Sleep a bit to allow the possible sequence to be read
+    usleep(SEQUENCES_TIMEOUT_MICROSEC);
+    cc = editorReadKey();
+    switch (cc) {
+    case KEY_d:
+      editorDeleteRow(E.cy);
+      break;
+    default:
+      dlog_debug(E.logger, "no sequence for '%c%c'", c, cc);
+      break;
+    }
 
   case KEY_G:
     editorMoveCursor(CMD_GO_BOTTOM_DOC);
