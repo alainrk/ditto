@@ -1034,22 +1034,23 @@ void editorProcessKeypressNormalMode(int c) {
     editorChangeMode(INSERT_MODE);
     break;
 
+  case KEY_o:
+    editorInsertRow(E.cy + 1, "", 0);
+    editorMoveCursor(ARROW_DOWN);
+    editorChangeMode(INSERT_MODE);
+    break;
+
+  case KEY_O:
+    editorInsertRow(E.cy, "", 0);
+    editorMoveCursor(ARROW_UP);
+    editorChangeMode(INSERT_MODE);
+    break;
+
   case KEY_x:
   case KEY_X:
     if (c == KEY_x)
       editorMoveCursor(ARROW_RIGHT);
     editorDeleteChar();
-    break;
-
-  case KEY_O:
-    // TODO: This should only insert the newline above, without splitting
-    // editorInsertNewline(); <- not this
-    // editorChangeMode(INSERT_MODE);
-    break;
-  case KEY_o:
-    // TODO: This should only insert the newline below, without splitting
-    // editorInsertNewline(); <- not this
-    // editorChangeMode(INSERT_MODE);
     break;
 
   case KEY_G:
