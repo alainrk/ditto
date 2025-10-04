@@ -109,6 +109,8 @@ enum editorCommands {
 enum keys {
   KEY_ESC = 27,
   KEY_COLON = 58,
+  KEY_a = 'a',
+  KEY_A = 'A',
   KEY_G = 'G',
   KEY_H = 'H',
   KEY_J = 'J',
@@ -908,7 +910,7 @@ void editorMoveCursor(int key) {
   switch (key) {
   case ARROW_DOWN:
   case KEY_j:
-    if (E.cy < E.numrows) {
+    if (E.cy < E.numrows - 1) {
       E.cy++;
     }
     break;
@@ -930,7 +932,7 @@ void editorMoveCursor(int key) {
   case ARROW_RIGHT:
   case KEY_l:
     // Limit right scrolling
-    if (row && E.cx < row->size - 1) {
+    if (row && E.cx < row->size) {
       E.cx++;
     }
     break;
@@ -1009,6 +1011,7 @@ void editorProcessKeypressNormalMode(int c) {
   case ARROW_UP:
   case ARROW_LEFT:
   case ARROW_RIGHT:
+  case ARROW_DOWN:
   case KEY_j:
   case KEY_k:
   case KEY_h:
@@ -1018,6 +1021,17 @@ void editorProcessKeypressNormalMode(int c) {
   case KEY_H:
   case KEY_L:
     editorMoveCursor(c);
+    break;
+
+  case KEY_a:
+    editorMoveCursor(ARROW_RIGHT);
+    editorChangeMode(INSERT_MODE);
+    break;
+
+  case KEY_A:
+    editorMoveCursor(KEY_L);
+    editorMoveCursor(ARROW_RIGHT);
+    editorChangeMode(INSERT_MODE);
     break;
 
   case KEY_x:
@@ -1074,6 +1088,12 @@ void editorProcessKeypressInsertMode(int c) {
     break;
   case CTRL_KEY('l'):
     // case '\x1b':
+    break;
+  case ARROW_UP:
+  case ARROW_LEFT:
+  case ARROW_RIGHT:
+  case ARROW_DOWN:
+    editorMoveCursor(c);
     break;
   default:
     // Only insert printable characters (ASCII 32-126)
