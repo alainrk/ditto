@@ -1044,7 +1044,6 @@ void editorProcessKeypressNormalMode(int c) {
 
   case KEY_O:
     editorInsertRow(E.cy, "", 0);
-    editorMoveCursor(ARROW_UP);
     editorChangeMode(INSERT_MODE);
     break;
 
@@ -1067,10 +1066,12 @@ void editorProcessKeypressNormalMode(int c) {
       dlog_debug(E.logger, "no sequence for '%c%c'", c, cc);
       break;
     }
+    break;
 
   case KEY_G:
     editorMoveCursor(CMD_GO_BOTTOM_DOC);
     break;
+
   case KEY_g:
     // Sleep a bit to allow the possible sequence to be read
     usleep(SEQUENCES_TIMEOUT_MICROSEC);
@@ -1083,6 +1084,7 @@ void editorProcessKeypressNormalMode(int c) {
       dlog_debug(E.logger, "no sequence for '%c%c'", c, cc);
       break;
     }
+    break;
   }
 
   quit_times = DITTO_QUIT_TIMES;
