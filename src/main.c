@@ -90,6 +90,10 @@
 
 #define ABUF_INIT {NULL, 0}
 
+/*** prototypes ***/
+
+char *editorPrompt(char *prompt);
+
 /*** enum ***/
 
 enum editorMode { NORMAL_MODE = 0, INSERT_MODE, VISUAL_MODE, COMMAND_MODE };
@@ -655,8 +659,11 @@ void editorOpen(const char *filename) {
 }
 
 int editorSave(void) {
-  if (E.filename == NULL)
-    return 1;
+  if (E.filename == NULL) {
+    E.filename = editorPrompt("Filename to save to: %s");
+    if (E.filename == NULL)
+      return 1;
+  }
 
   int len;
   char *buf = editorRowsToString(&len);
@@ -805,8 +812,8 @@ void editorDrawStatusBar(AppendBuffer *ab) {
     vizlen = fullwidth;
 
   // Assumption: I append the statusbar, but if too long, truncate it,
-  // remembering to add the nonprintable chars of the mode, which we assume are
-  // always there
+  // remembering to add the nonprintable chars of the mode, which we assume
+  // are always there
   abAppend(ab, status, vizlen + nonprintable);
 
   // Fill the rest of the statusbar with spaces
@@ -878,13 +885,30 @@ char *editorPrompt(char *prompt) {
     editorRefreshScreen();
 
     int c = editorReadKey();
+
+    if (c == CTRL_KEY('c') || c == KEY_ESC) {
+      editorSetStatusMessage("");
+      free(buf);
+      return NULL;
+    }
+
+    if (c == KEY_BACKSPACE) {
+      if (buflen != 0) {
+        buflen--;
+        buf[buflen] = '\0';
+      }
+      continue;
+    }
+
     if (c == '\r') {
       if (buflen != 0) {
         editorSetStatusMessage("");
         return buf;
       }
-    } else if (!iscntrl(c) && c < 128) { // Is printable character
-      if (buflen == bufsize - 1) {       // Exceeded buffer, need to double it
+    }
+
+    if (!iscntrl(c) && c < 128) {  // Is printable character
+      if (buflen == bufsize - 1) { // Exceeded buffer, need to double it
         bufsize *= 2;
         buf = realloc(buf, bufsize);
       }
@@ -971,8 +995,8 @@ void editorMoveCursor(int key) {
   // New row after the movement
   row = (E.cy >= E.numrows) ? NULL : &E.row[E.cy];
   int rowlen = row ? row->size : 0;
-  // Avoid ending up in an invalid x-position through vertical movements across
-  // lines with different size
+  // Avoid ending up in an invalid x-position through vertical movements
+  // across lines with different size
   if (E.cx > rowlen)
     E.cx = rowlen;
 }
