@@ -113,9 +113,7 @@ enum editorCommands {
 enum keys {
   KEY_ESC = 27,
   KEY_COLON = 58,
-  KEY_a = 'a',
   KEY_A = 'A',
-  KEY_d = 'd',
   KEY_D = 'D',
   KEY_G = 'G',
   KEY_H = 'H',
@@ -123,7 +121,11 @@ enum keys {
   KEY_K = 'K',
   KEY_L = 'L',
   KEY_O = 'O',
+  KEY_P = 'P',
   KEY_X = 'X',
+  KEY_Y = 'Y',
+  KEY_a = 'a',
+  KEY_d = 'd',
   KEY_g = 'g',
   KEY_h = 'h',
   KEY_i = 'i',
@@ -131,8 +133,10 @@ enum keys {
   KEY_k = 'k',
   KEY_l = 'l',
   KEY_o = 'o',
+  KEY_p = 'p',
   KEY_v = 'v',
   KEY_x = 'x',
+  KEY_y = 'y',
   KEY_BACKSPACE = 127,
   ARROW_UP = 1000,
   ARROW_DOWN,
@@ -195,6 +199,8 @@ typedef struct {
   struct termios orig_termios;
   // Screen resize flag
   volatile sig_atomic_t screen_resized;
+  // NOTE: For now it's just a single register
+  char *reg;
 } EditorConfig;
 
 EditorConfig E;
@@ -894,8 +900,7 @@ char *editorPrompt(char *prompt) {
 
     if (c == KEY_BACKSPACE) {
       if (buflen != 0) {
-        buflen--;
-        buf[buflen] = '\0';
+        buf[--buflen] = '\0';
       }
       continue;
     }
@@ -1076,6 +1081,30 @@ void editorProcessKeypressNormalMode(int c) {
     if (c == KEY_x)
       editorMoveCursor(ARROW_RIGHT);
     editorDeleteChar();
+    break;
+
+  case KEY_y:
+    // Sleep a bit to allow the possible sequence to be read
+    usleep(SEQUENCES_TIMEOUT_MICROSEC);
+    cc = editorReadKey();
+    switch (cc) {
+    case KEY_y:
+      free(E.reg);
+      E.reg = E.row[E.cy].chars;
+      editorSetStatusMessage("Yanked %d lines", 1);
+      break;
+    default:
+      dlog_debug(E.logger, "no sequence for '%c%c'", c, cc);
+      break;
+    }
+    break;
+
+  case KEY_p:
+    editorInsertRow(E.cy + 1, E.reg, strlen(E.reg));
+    break;
+  case KEY_P:
+    editorInsertRow(E.cy, E.reg, strlen(E.reg));
+    editorMoveCursor(E.cy - 1);
     break;
 
   case KEY_d:
