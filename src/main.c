@@ -201,6 +201,16 @@ typedef struct {
   volatile sig_atomic_t screen_resized;
   // NOTE: For now it's just a single register
   char *reg;
+  // Input mode flag: 0 = normal editing, 1 = prompt/command input
+  int input_mode;
+  // Current prompt text for cursor positioning
+  char *input_prompt;
+  // Length of input buffer for cursor positioning
+  size_t input_buffer_len;
+  // Command mode input buffer
+  char *command_buffer;
+  size_t command_buffer_size;
+  size_t command_buffer_len;
 } EditorConfig;
 
 EditorConfig E;
@@ -865,8 +875,33 @@ void editorRefreshScreen(void) {
   editorDrawMessageBar(&ab);
 
   char buf[32];
-  snprintf(buf, sizeof(buf), "\x1b[%d;%dH", (E.cy - E.rowoff) + 1,
-           (E.rx - E.coloff) + editorGetLineNumberWidth() + 1);
+
+  // Position cursor based on input mode
+  if (E.input_mode) {
+    // Cursor in message bar (last line of terminal)
+    int row = E.screenrows + 2; // +1 for status bar, +1 for message bar
+    // Calculate column: prompt length + buffer length + 1
+    // For prompt format like "Filename to save to: %s", we need to find where
+    // %s is
+    int col = 1; // Start at column 1
+
+    if (E.input_prompt) {
+      // Calculate visible prompt length
+      char prompt_formatted[256];
+      snprintf(prompt_formatted, sizeof(prompt_formatted), E.input_prompt, "");
+      col = strlen(prompt_formatted) + 1;
+    }
+
+    // Add buffer length for cursor position
+    col += E.input_buffer_len;
+
+    snprintf(buf, sizeof(buf), "\x1b[%d;%dH", row, col);
+  } else {
+    // Cursor in editor at normal position
+    snprintf(buf, sizeof(buf), "\x1b[%d;%dH", (E.cy - E.rowoff) + 1,
+             (E.rx - E.coloff) + editorGetLineNumberWidth() + 1);
+  }
+
   abAppend(&ab, buf, strlen(buf));
 
   dlog_debug(E.logger, "%hu;%hu", E.cy + 1, E.cx + 1);
@@ -886,14 +921,24 @@ char *editorPrompt(char *prompt) {
   size_t buflen = 0;
   buf[0] = '\0';
 
+  // Enter input mode
+  E.input_mode = 1;
+  E.input_prompt = prompt;
+  E.input_buffer_len = 0;
+  write(STDOUT_FILENO, CURSOR_BAR_BLINK, CURSOR_BAR_BLINK_SZ);
+
   while (1) {
     editorSetStatusMessage(prompt, buf);
+    E.input_buffer_len = buflen;
     editorRefreshScreen();
 
     int c = editorReadKey();
 
     if (c == CTRL_KEY('c') || c == KEY_ESC) {
       editorSetStatusMessage("");
+      E.input_mode = 0;
+      E.input_prompt = NULL;
+      E.input_buffer_len = 0;
       free(buf);
       return NULL;
     }
@@ -908,6 +953,9 @@ char *editorPrompt(char *prompt) {
     if (c == '\r') {
       if (buflen != 0) {
         editorSetStatusMessage("");
+        E.input_mode = 0;
+        E.input_prompt = NULL;
+        E.input_buffer_len = 0;
         return buf;
       }
     }
@@ -924,11 +972,28 @@ char *editorPrompt(char *prompt) {
 }
 
 void editorChangeMode(enum editorMode mode) {
+  enum editorMode old_mode = E.mode;
   E.mode = mode;
+
+  // Clean up message bar if exiting command mode
+  if (old_mode == COMMAND_MODE && mode != COMMAND_MODE) {
+    E.input_mode = 0;
+    E.input_prompt = NULL;
+    E.input_buffer_len = 0;
+  }
 
   // Change cursor style based on mode
   if (mode == INSERT_MODE) {
     write(STDOUT_FILENO, CURSOR_BAR_BLINK, CURSOR_BAR_BLINK_SZ);
+  } else if (mode == COMMAND_MODE) {
+    // Entering command mode - set up input state
+    E.input_mode = 1;
+    E.input_prompt = ":";
+    E.command_buffer_len = 0;
+    E.command_buffer[0] = '\0';
+    E.input_buffer_len = 0;
+    write(STDOUT_FILENO, CURSOR_BAR_BLINK, CURSOR_BAR_BLINK_SZ);
+    editorSetStatusMessage(":%s", E.command_buffer);
   } else {
     write(STDOUT_FILENO, CURSOR_BLOCK, CURSOR_BLOCK_SZ);
   }
@@ -1189,10 +1254,37 @@ void editorProcessKeypressVisualMode(int c) {
 void editorProcessKeypressCommandMode(int c) {
   switch (c) {
   case KEY_ESC:
+    editorSetStatusMessage("");
     editorChangeMode(NORMAL_MODE);
     break;
+
+  case KEY_BACKSPACE:
+    if (E.command_buffer_len > 0) {
+      E.command_buffer[--E.command_buffer_len] = '\0';
+      E.input_buffer_len = E.command_buffer_len;
+      editorSetStatusMessage(":%s", E.command_buffer);
+    }
+    break;
+
+  case '\r':
+    // TODO: Execute the command
+    editorSetStatusMessage("Command not implemented: %s", E.command_buffer);
+    editorChangeMode(NORMAL_MODE);
+    break;
+
   default:
-    editorInsertChar(c);
+    // Only insert printable characters
+    if (!iscntrl(c) && c < 128) {
+      // Expand buffer if needed
+      if (E.command_buffer_len >= E.command_buffer_size - 1) {
+        E.command_buffer_size *= 2;
+        E.command_buffer = realloc(E.command_buffer, E.command_buffer_size);
+      }
+      E.command_buffer[E.command_buffer_len++] = c;
+      E.command_buffer[E.command_buffer_len] = '\0';
+      E.input_buffer_len = E.command_buffer_len;
+      editorSetStatusMessage(":%s", E.command_buffer);
+    }
     break;
   }
 }
@@ -1238,6 +1330,13 @@ void initEditor(DLogger *l) {
   E.statusmsg_time = 0;
   E.mode = NORMAL_MODE;
   E.screen_resized = 0;
+  E.input_mode = 0;
+  E.input_prompt = NULL;
+  E.input_buffer_len = 0;
+  E.command_buffer = malloc(128);
+  E.command_buffer_size = 128;
+  E.command_buffer_len = 0;
+  E.command_buffer[0] = '\0';
 
   E.messages = fss_create(10);
 
