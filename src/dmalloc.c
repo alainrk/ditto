@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 
-static size_t used_memory = 0;
+static size_t total_mem = 0;
 
 void *dmalloc(size_t size) {
   size_t realsize = size + sizeof(size_t);
@@ -14,7 +14,7 @@ void *dmalloc(size_t size) {
     exit(1);
   }
 
-  used_memory += realsize;
+  total_mem += realsize;
   *((size_t*)p) = (size_t)size;
 
   return p + sizeof(size_t);
@@ -33,7 +33,7 @@ void *drealloc(void *p, size_t size) {
   }
 
   // Overhead size_t space remains
-  used_memory = used_memory - oldsize + size;
+  total_mem = total_mem - oldsize + size;
   *((size_t*)(newp)) = (size_t)size;
 
   return newp + sizeof(size_t);
@@ -45,52 +45,58 @@ void dfree(void *p) {
   void *realp = p - sizeof(size_t);
   size_t objsize = *((size_t*)(realp));
   free(realp);
-  used_memory -= (objsize + sizeof(size_t));
+  total_mem -= (objsize + sizeof(size_t));
 }
 
-size_t dused_memory() {
-  return used_memory;
+size_t used_memory(void) {
+  return total_mem;
 }
 
-// Test implementation
-int main() {
+#ifdef TESTS_DMALLOC
+int main(void) {
   int res;
 
   // --------- Malloc ---------
   char *s = (char*)dmalloc(100);
-  if (dused_memory() != 100 + sizeof(size_t)) {
+  strncpy(s, "test_sss", 8);
+  if (used_memory() != 101 + sizeof(size_t)) {
     fprintf(stderr, "Wrong memory usage after alloc 's'\n");
+    exit(1);
+  }
+  res = strncmp(s, "test_sss", 8);
+  if (res != 0) {
+    fprintf(stderr, "Wrong content of 's' after drealloc = %s\n", s);
     exit(1);
   }
 
   char *p = (char*)dmalloc(100);
-  if (dused_memory() != 200 + 2*sizeof(size_t)) {
+  if (used_memory() != 200 + 2*sizeof(size_t)) {
     fprintf(stderr, "Wrong memory usage after alloc 'p'\n");
     exit(1);
   }
 
   char *q = (char*)dmalloc(100);
-  if (dused_memory() != 300 + 3*sizeof(size_t)) {
+  if (used_memory() != 300 + 3*sizeof(size_t)) {
     fprintf(stderr, "Wrong memory usage after alloc 'q'\n");
     exit(1);
   }
 
   // --------- Free ---------
   dfree(s);
-  if (dused_memory() != 200 + 2*sizeof(size_t)) {
-    fprintf(stderr, "Wrong memory usage after free 's' = %zu\n", dused_memory());
+  if (used_memory() != 200 + 2*sizeof(size_t)) {
+    fprintf(stderr, "Wrong memory usage after free 's' = %zu\n", used_memory());
     exit(1);
   }
 
   dfree(p);
-  if (dused_memory() != 100 + sizeof(size_t)) {
-    fprintf(stderr, "Wrong memory usage after alloc 'p' = %zu\n", dused_memory());
+  if (used_memory() != 100 + sizeof(size_t)) {
+    fprintf(stderr, "Wrong memory usage after alloc 'p' = %zu\n", used_memory());
     exit(1);
   }
 
   dfree(q);
-  if (dused_memory() != 0) {
-    fprintf(stderr, "Wrong memory usage after alloc 'q' = %zu\n", dused_memory());
+  if (used_memory() != 0) {
+    fprintf(stderr, "Wrong memory usage after alloc 'q' = %zu\n", used_memory());
     exit(1);
   }
 
@@ -98,8 +104,8 @@ int main() {
   char *t = (char*)dmalloc(100);
   strncpy(t, "test", 4);
   t = (char*)drealloc(t, 200);
-  if (dused_memory() != 200 + sizeof(size_t)) {
-    fprintf(stderr, "Wrong memory usage after drealloc 't' = %zu\n", dused_memory());
+  if (used_memory() != 200 + sizeof(size_t)) {
+    fprintf(stderr, "Wrong memory usage after drealloc 't' = %zu\n", used_memory());
     exit(1);
   }
   res = strncmp(t, "test", 4);
@@ -108,8 +114,9 @@ int main() {
     exit(1);
   }
   dfree(t);
-  if (dused_memory() != 0) {
-    fprintf(stderr, "Wrong memory usage after dfree of reallocated 't' = %zu\n", dused_memory());
+  if (used_memory() != 0) {
+    fprintf(stderr, "Wrong memory usage after dfree of reallocated 't' = %zu\n", used_memory());
     exit(1);
   }
 }
+#endif

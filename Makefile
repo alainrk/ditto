@@ -1,5 +1,5 @@
 CC = clang
-CFLAGS = -std=c99 -Wall -Wextra -Werror -pedantic -g
+CFLAGS = -std=c99 -Wall -Wextra -Werror -O2 -W -DSDS_ABORT_ON_OOM -g
 # CFLAGS = -std=c99 -Wall -Wextra -Werror -g -O2 -fsanitize=address
 LDFLAGS = -lreadline
 SRC_DIR = src
@@ -22,6 +22,7 @@ MAIN = $(BIN_DIR)/ditto
 .PHONY: all clean debug release kill
 
 all: $(MAIN)
+
 
 # Debug build with all debug flags enabled
 debug: DEBUG_FLAGS += -DDITTO_DEBUG_ALL
@@ -57,8 +58,9 @@ run: $(MAIN)
 	$(MAIN)
 
 # Run a specific test or script
-test: $(MAIN)
-	$(MAIN) test/TODO
+PHONY: test-dmalloc
+test-dmalloc:
+	$(CC) -DTESTS_DMALLOC -o bin/dmalloc-test src/dmalloc.c && bin/dmalloc-test
 
 # Unstuck process while developing if editor gets blocked
 kill:
