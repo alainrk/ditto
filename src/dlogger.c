@@ -2,9 +2,10 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <time.h>
+#include "dmalloc.h"
 
 DLogger *dlog_initf(FILE *f, int level) {
-  DLogger *dlog = malloc(sizeof(DLogger));
+  DLogger *dlog = dmalloc(sizeof(DLogger));
 
   dlog->f = f;
   dlog->level = level;
@@ -73,5 +74,5 @@ void dlog_trace(DLogger *dlog, const char *format, ...) {
 
 void dlog_close(DLogger *dlog) {
   fclose(dlog->f);
-  free(dlog);
+  dfree(dlog);
 }

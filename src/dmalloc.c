@@ -59,7 +59,7 @@ int main(void) {
   // --------- Malloc ---------
   char *s = (char*)dmalloc(100);
   strncpy(s, "test_sss", 8);
-  if (used_memory() != 101 + sizeof(size_t)) {
+  if (used_memory() != 100 + sizeof(size_t)) {
     fprintf(stderr, "Wrong memory usage after alloc 's'\n");
     exit(1);
   }

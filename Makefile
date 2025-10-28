@@ -57,10 +57,14 @@ clean:
 run: $(MAIN)
 	$(MAIN)
 
-# Run a specific test or script
+# Test targets
 PHONY: test-dmalloc
 test-dmalloc:
 	$(CC) -DTESTS_DMALLOC -o bin/dmalloc-test src/dmalloc.c && bin/dmalloc-test
+
+PHONY: test-fss
+test-fss:
+	$(CC) -DTESTS_FSS -o bin/fss-test src/fss.c src/dmalloc.c && bin/fss-test
 
 # Unstuck process while developing if editor gets blocked
 kill:

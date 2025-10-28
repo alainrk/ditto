@@ -5,13 +5,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "dmalloc.h"
 
 FixedSizeStack *fss_create(size_t cap) {
   if (cap == 0) {
     cap = FSS_DEFAULT_CAP;
   }
 
-  FixedSizeStack *q = malloc(sizeof(FixedSizeStack));
+  FixedSizeStack *q = dmalloc(sizeof(FixedSizeStack));
   if (!q) {
     return NULL;
   }
@@ -23,7 +24,7 @@ FixedSizeStack *fss_create(size_t cap) {
   FSSItem *prev = NULL;
   size_t i = 0;
   do {
-    FSSItem *new = malloc(sizeof(FSSItem));
+    FSSItem *new = dmalloc(sizeof(FSSItem));
     if (!new) {
       // TODO: destroy should support broken structure
       fss_destroy(q);
@@ -61,12 +62,12 @@ void fss_destroy(FixedSizeStack *q) {
   FSSItem *curr = q->head;
   while (curr) {
     FSSItem *next = curr->next;
-    free(curr->data);
-    free(curr);
+    dfree(curr->data);
+    dfree(curr);
     curr = next;
   }
 
-  free(q);
+  dfree(q);
 }
 
 // Pushes a new element to the queue.
@@ -81,11 +82,11 @@ int fss_push(FixedSizeStack *q, const void *data, size_t size) {
 
   // Clean up if busy
   if (q->head->data) {
-    free(q->head->data);
+    dfree(q->head->data);
   }
 
   // Insert new data, taking ownership of the internal representation only
-  q->head->data = malloc(size);
+  q->head->data = dmalloc(size);
   if (!q->head->data) {
     errno = ENOMEM;
     return -1;
@@ -163,7 +164,7 @@ void *fss_peek(FixedSizeStack *q, size_t n, size_t *size) {
     return NULL;
 
   // Insert new data, taking ownership of the internal representation only
-  void *res = malloc(curr->size);
+  void *res = dmalloc(curr->size);
   if (!res) {
     errno = ENOMEM;
     return NULL;
@@ -175,37 +176,39 @@ void *fss_peek(FixedSizeStack *q, size_t n, size_t *size) {
   return res;
 }
 
-// Testing function
-// int main(void) {
-//   size_t qlen = 10;
-//   FixedSizeStack *q = fss_create(qlen);
-//
-//   for (int i = 0; i < qlen + 5; i++) {
-//     char *s = malloc(50);
-//     sprintf(s, "element %d", i);
-//     fss_push(q, s, strlen(s));
-//     free(s);
-//   }
-//
-//   for (int i = 0; i < qlen + 2; i++) {
-//     size_t len;
-//     char *s = fss_peek(q, i, &len);
-//     if (!s) {
-//       printf("NULL - break\n");
-//       break;
-//     }
-//     printf("peeked: %s, len: %zu, q->len = %zu\n", s, len, q->len);
-//     free(s);
-//   }
-//
-//   for (int i = 0; i < qlen; i++) {
-//     size_t len;
-//     char *s = fss_pop(q, &len);
-//     if (!s)
-//       break;
-//     printf("popped: %s, q->len = %zu\n", s, q->len);
-//     free(s);
-//   }
-//
-//   return 0;
-// }
+
+#ifdef TESTS_FSS
+int main(void) {
+  size_t qlen = 10;
+  FixedSizeStack *q = fss_create(qlen);
+
+  for (int i = 0; i < qlen + 5; i++) {
+    char *s = dmalloc(50);
+    sprintf(s, "element %d", i);
+    fss_push(q, s, strlen(s));
+    dfree(s);
+  }
+
+  for (int i = 0; i < qlen + 2; i++) {
+    size_t len;
+    char *s = fss_peek(q, i, &len);
+    if (!s) {
+      printf("NULL - break\n");
+      break;
+    }
+    printf("peeked: %s, len: %zu, q->len = %zu\n", s, len, q->len);
+    dfree(s);
+  }
+
+  for (int i = 0; i < qlen; i++) {
+    size_t len;
+    char *s = fss_pop(q, &len);
+    if (!s)
+      break;
+    printf("popped: %s, q->len = %zu\n", s, q->len);
+    dfree(s);
+  }
+
+  return 0;
+}
+#endif
