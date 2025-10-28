@@ -4,6 +4,7 @@
 void *dmalloc(size_t size);
 void *drealloc(void *p, size_t size);
 void dfree(void *p);
+char *dstrdup(const char *s);
 size_t used_memory(void);
 
 #endif

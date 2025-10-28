@@ -21,13 +21,14 @@ void *dmalloc(size_t size) {
 }
 
 void *drealloc(void *p, size_t size) {
-  if (p == NULL) return NULL;
+  // Behave like dmalloc if p is NULL
+  if (p == NULL) return dmalloc(size);
 
   void *realp = p - sizeof(size_t);
   size_t oldsize = *((size_t*)(realp));
 
   void *newp = realloc(realp, size + sizeof(size_t));
-  if (p == NULL) {
+  if (newp == NULL) {
     fprintf(stderr, "Out of memory on drealloc\n");
     exit(1);
   }
@@ -46,6 +47,13 @@ void dfree(void *p) {
   size_t objsize = *((size_t*)(realp));
   free(realp);
   total_mem -= (objsize + sizeof(size_t));
+}
+
+char *dstrdup(const char *s) {
+  size_t len = strlen(s) + 1;
+  char *p = (char*)dmalloc(len);
+  memcpy(p, s, len);
+  return p;
 }
 
 size_t used_memory(void) {

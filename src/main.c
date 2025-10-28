@@ -16,6 +16,7 @@
 
 #include "dlogger.h"
 #include "fss.h"
+#include "dmalloc.h"
 
 /*** defines ***/
 
@@ -482,8 +483,8 @@ void editorUpdateRow(Row *row) {
       tabs++;
   }
 
-  free(row->render);
-  row->render = malloc(row->size + tabs * (DITTO_TAB_STOP - 1) + 1);
+  dfree(row->render);
+  row->render = dmalloc(row->size + tabs * (DITTO_TAB_STOP - 1) + 1);
 
   int idx = 0;
   for (uint32_t j = 0; j < row->size; j++) {
@@ -505,11 +506,11 @@ void editorInsertRow(uint32_t at, char *s, size_t len) {
   if (at < 0 || at > E.numrows)
     return;
 
-  E.row = realloc(E.row, sizeof(Row) * (E.numrows + 1));
+  E.row = drealloc(E.row, sizeof(Row) * (E.numrows + 1));
   memmove(&E.row[at + 1], &E.row[at], sizeof(Row) * (E.numrows - at));
 
   E.row[at].size = len;
-  E.row[at].chars = malloc(len + 1);
+  E.row[at].chars = dmalloc(len + 1);
   memcpy(E.row[at].chars, s, len);
   E.row[at].chars[len] = '\0';
 
@@ -522,8 +523,8 @@ void editorInsertRow(uint32_t at, char *s, size_t len) {
 }
 
 void editorFreeRow(Row *row) {
-  free(row->render);
-  free(row->chars);
+  dfree(row->render);
+  dfree(row->chars);
 }
 
 void editorDeleteRow(uint32_t at) {
@@ -539,7 +540,7 @@ void editorRowInsertChar(Row *row, uint32_t at, int c) {
   if (at < 0 || at > row->size)
     at = row->size;
   // Make space for 1 char + NULL terminator
-  row->chars = realloc(row->chars, row->size + 2);
+  row->chars = drealloc(row->chars, row->size + 2);
   // Like realloc but safe when src/dest can overlap
   memmove(&row->chars[at + 1], &row->chars[at], row->size - at + 1);
   row->size++;
@@ -550,7 +551,7 @@ void editorRowInsertChar(Row *row, uint32_t at, int c) {
 }
 
 void editorRowAppendString(Row *row, char *s, size_t len) {
-  row->chars = realloc(row->chars, row->size + len + 1);
+  row->chars = drealloc(row->chars, row->size + len + 1);
   memcpy(&row->chars[row->size], s, len);
   row->size += len;
   row->chars[row->size] = '\0';
@@ -632,7 +633,7 @@ char *editorRowsToString(int *buflen) {
   }
   *buflen = totlen;
 
-  char *buf = malloc(totlen);
+  char *buf = dmalloc(totlen);
   char *p = buf;
   for (uint32_t j = 0; j < E.numrows; j++) {
     memcpy(p, E.row[j].chars, E.row[j].size);
@@ -645,8 +646,8 @@ char *editorRowsToString(int *buflen) {
 }
 
 void editorOpen(const char *filename) {
-  free(E.filename);
-  E.filename = strdup(filename);
+  dfree(E.filename);
+  E.filename = dstrdup(filename);
 
   FILE *f = fopen(filename, "a+");
   if (!f)
@@ -665,7 +666,7 @@ void editorOpen(const char *filename) {
     editorInsertRow(E.numrows, line, linelen);
   }
 
-  free(line);
+  free(line); // Not used dmalloc here
   fclose(f);
   E.dirty = 0;
 }
@@ -684,7 +685,7 @@ int editorSave(void) {
   if (fd == -1) {
     dlog_debug(E.logger, "Could not save file %s", E.filename);
     editorSetStatusMessage("Could not save file %s", E.filename);
-    free(buf);
+    dfree(buf);
     return 1;
   }
 
@@ -696,7 +697,7 @@ int editorSave(void) {
     editorSetStatusMessage("%d bytes written to %s", len, E.filename);
 
   close(fd);
-  free(buf);
+  dfree(buf);
   E.dirty = 0;
   return err;
 }
@@ -704,17 +705,17 @@ int editorSave(void) {
 /*** append buffer ***/
 
 void abAppend(AppendBuffer *ab, const char *s, uint32_t len) {
-  char *new = realloc(ab->b, ab->len + len);
+  char *new = drealloc(ab->b, ab->len + len);
 
   if (new == NULL)
-    die("realloc");
+    die("drealloc");
 
   memcpy(&new[ab->len], s, len);
   ab->b = new;
   ab->len += len;
 }
 
-void abFree(AppendBuffer *ab) { free(ab->b); }
+void abFree(AppendBuffer *ab) { dfree(ab->b); }
 
 /*** output ***/
 
@@ -954,7 +955,7 @@ char *editorPrompt(char *prompt) {
       // Expand buffer if needed
       if (E.input_buffer_len >= E.input_buffer_size - 1) {
         E.input_buffer_size *= 2;
-        E.input_buffer = realloc(E.input_buffer, E.input_buffer_size);
+        E.input_buffer = drealloc(E.input_buffer, E.input_buffer_size);
       }
       E.input_buffer[E.input_buffer_len++] = c;
       E.input_buffer[E.input_buffer_len] = '\0';
@@ -1144,7 +1145,7 @@ void editorProcessKeypressNormalMode(int c) {
     cc = editorReadKey();
     switch (cc) {
     case KEY_y:
-      free(E.reg);
+      dfree(E.reg);
       E.reg = E.row[E.cy].chars;
       editorSetStatusMessage("Yanked %d lines", 1);
       break;
@@ -1267,7 +1268,7 @@ void editorProcessKeypressCommandMode(int c) {
       // Expand buffer if needed
       if (E.input_buffer_len >= E.input_buffer_size - 1) {
         E.input_buffer_size *= 2;
-        E.input_buffer = realloc(E.input_buffer, E.input_buffer_size);
+        E.input_buffer = drealloc(E.input_buffer, E.input_buffer_size);
       }
       E.input_buffer[E.input_buffer_len++] = c;
       E.input_buffer[E.input_buffer_len] = '\0';
@@ -1320,7 +1321,7 @@ void initEditor(DLogger *l) {
   E.screen_resized = 0;
   E.input_mode = 0;
   E.input_prompt = NULL;
-  E.input_buffer = malloc(128);
+  E.input_buffer = dmalloc(128);
   E.input_buffer_size = 128;
   E.input_buffer_len = 0;
   E.input_buffer[0] = '\0';
