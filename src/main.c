@@ -15,8 +15,8 @@
 #include <unistd.h>
 
 #include "dlogger.h"
-#include "fss.h"
 #include "dmalloc.h"
+#include "fss.h"
 
 /*** defines ***/
 
@@ -120,6 +120,7 @@ enum keys {
   KEY_H = 'H',
   KEY_J = 'J',
   KEY_K = 'K',
+  KEY_I = 'I',
   KEY_L = 'L',
   KEY_O = 'O',
   KEY_P = 'P',
@@ -138,6 +139,7 @@ enum keys {
   KEY_v = 'v',
   KEY_x = 'x',
   KEY_y = 'y',
+  KEY_TAB = '\t',
   KEY_BACKSPACE = 127,
   ARROW_UP = 1000,
   ARROW_DOWN,
@@ -203,9 +205,9 @@ typedef struct {
   // NOTE: For now it's just a single register
   char *reg;
   // Message bar input state
-  int input_mode;           // 0 = normal editing, 1 = message bar input active
-  char *input_prompt;       // Prompt text (e.g., ":" or "Filename to save to: %s")
-  char *input_buffer;       // Input buffer for message bar
+  int input_mode;     // 0 = normal editing, 1 = message bar input active
+  char *input_prompt; // Prompt text (e.g., ":" or "Filename to save to: %s")
+  char *input_buffer; // Input buffer for message bar
   size_t input_buffer_size; // Allocated size of input buffer
   size_t input_buffer_len;  // Current length of input in buffer
 } EditorConfig;
@@ -762,7 +764,7 @@ void editorDrawRows(AppendBuffer *ab) {
     uint16_t filerow = y + E.rowoff;
 
     // Print the line number
-    if ((DITTO_LINENO_ENABLED && filerow < E.numrows) || filerow == 0) {
+    if (DITTO_LINENO_ENABLED && filerow < E.numrows) {
       char line[16];
       snprintf(line, sizeof(line), "%4d ", filerow + 1);
       abAppend(ab, line, strlen(line));
@@ -951,7 +953,7 @@ char *editorPrompt(char *prompt) {
       }
     }
 
-    if (!iscntrl(c) && c < 128) {  // Is printable character
+    if (!iscntrl(c) && c < 128) { // Is printable character
       // Expand buffer if needed
       if (E.input_buffer_len >= E.input_buffer_size - 1) {
         E.input_buffer_size *= 2;
@@ -1023,6 +1025,15 @@ void editorMoveCursor(int key) {
       E.cx++;
     }
     break;
+
+  // Go to first printable character in the current line
+  case KEY_I: {
+    uint16_t p;
+    for (p = 0; p < row->size && isspace(row->chars[p]); p++)
+      ;
+    E.cx = p;
+    break;
+  }
 
   // Full right
   case KEY_L:
@@ -1127,6 +1138,11 @@ void editorProcessKeypressNormalMode(int c) {
     editorChangeMode(INSERT_MODE);
     break;
 
+  case KEY_I:
+    editorMoveCursor(KEY_I);
+    editorChangeMode(INSERT_MODE);
+    break;
+
   case KEY_O:
     editorInsertRow(E.cy, "", 0);
     editorChangeMode(INSERT_MODE);
@@ -1224,7 +1240,9 @@ void editorProcessKeypressInsertMode(int c) {
     break;
   default:
     // Only insert printable characters (ASCII 32-126)
-    if (c >= 32 && c <= 126) {
+    // 9 is tab
+    // 32 is space
+    if (c == KEY_TAB || (c >= 32 && c <= 126)) {
       editorInsertChar(c);
     }
     break;
