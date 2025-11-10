@@ -91,6 +91,14 @@
 
 #define ABUF_INIT {NULL, 0}
 
+#define WORD_TYPE_WORDS 0
+#define WORD_TYPE_SPACES 1
+#define WORD_TYPE_OTHERS 2
+#define GET_WORD_TYPE(c)                                                       \
+  (isalnum((c)) || (c) == '_') ? WORD_TYPE_WORDS                               \
+  : (isspace((c)))             ? WORD_TYPE_SPACES                              \
+                               : WORD_TYPE_OTHERS
+
 /*** prototypes ***/
 
 char *editorPrompt(char *prompt);
@@ -128,6 +136,7 @@ enum keys {
   KEY_Y = 'Y',
   KEY_a = 'a',
   KEY_d = 'd',
+  KEY_e = 'e',
   KEY_g = 'g',
   KEY_h = 'h',
   KEY_i = 'i',
@@ -137,6 +146,7 @@ enum keys {
   KEY_o = 'o',
   KEY_p = 'p',
   KEY_v = 'v',
+  KEY_w = 'w',
   KEY_x = 'x',
   KEY_y = 'y',
   KEY_TAB = '\t',
@@ -903,8 +913,6 @@ void editorRefreshScreen(void) {
 
   abAppend(&ab, buf, strlen(buf));
 
-  dlog_debug(E.logger, "%hu;%hu", E.cy + 1, E.cx + 1);
-
   abAppend(&ab, SHOW_CURSOR, SHOW_CURSOR_SZ);
 
   write(STDOUT_FILENO, ab.b, ab.len);
@@ -1035,6 +1043,22 @@ void editorMoveCursor(int key) {
     break;
   }
 
+  // Move to the start of next word
+  case KEY_w: {
+    uint16_t p;
+    int old = GET_WORD_TYPE(row->chars[E.cx]);
+    for (p = E.cx + 1; p < row->size; p++) {
+      char c = (row->chars[p]);
+      int new = GET_WORD_TYPE(c);
+      if (old != new && new != WORD_TYPE_SPACES) {
+        E.cx = p;
+        break;
+      }
+      old = new;
+    }
+    break;
+  }
+
   // Full right
   case KEY_L:
     // TODO: Will need to move to the file line end, not the editor line end
@@ -1130,6 +1154,10 @@ void editorProcessKeypressNormalMode(int c) {
     editorMoveCursor(KEY_L);
     editorMoveCursor(ARROW_RIGHT);
     editorChangeMode(INSERT_MODE);
+    break;
+
+  case KEY_w:
+    editorMoveCursor(KEY_w);
     break;
 
   case KEY_o:
@@ -1298,7 +1326,7 @@ void editorProcessKeypressCommandMode(int c) {
 
 void editorProcessKeypress(void) {
   int c = editorReadKey();
-  dlog_debug(E.logger, "Pressed '%c' (%d)", c, c);
+  // dlog_debug(E.logger, "Pressed '%c' (%d)", c, c);
 
   switch (E.mode) {
   case NORMAL_MODE:
