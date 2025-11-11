@@ -94,10 +94,6 @@
 #define CHAR_FAMILY_WORDS 0
 #define CHAR_FAMILY_SPACES 1
 #define CHAR_FAMILY_OTHERS 2
-#define GET_CHAR_FAMILY(c)                                                     \
-  (isalnum((c)) || (c) == '_') ? CHAR_FAMILY_WORDS                             \
-  : (isspace((c)))             ? CHAR_FAMILY_SPACES                            \
-                               : CHAR_FAMILY_OTHERS
 
 /*** prototypes ***/
 
@@ -168,9 +164,9 @@ enum keys {
 
 typedef struct {
   // Real length of the row
-  uint32_t size;
+  int size;
   // Rendered length of the row
-  uint32_t rsize;
+  int rsize;
   // Real Characters in the row
   char *chars;
   // Rendered characters in the row
@@ -180,21 +176,21 @@ typedef struct {
 typedef struct {
   DLogger *logger;
   // Current cursor X-position relative to the actual chars in the file
-  uint16_t cx;
+  int cx;
   // Current cursor Y-position relative to the actual chars in the file
-  uint16_t cy;
+  int cy;
   // Current cursor X-position relative to the rendered chars in the file
-  uint16_t rx;
+  int rx;
   // Current cursor Y-position relative to the rendered chars in the file
-  uint16_t ry;
+  int ry;
   // Row offset in current file the cursor is on
-  uint32_t rowoff;
+  int rowoff;
   // Column offset in current file the cursor is on
-  uint32_t coloff;
+  int coloff;
   // Screen size
-  uint16_t screenrows, screencols;
+  int screenrows, screencols;
   // Number of rows in the file
-  uint32_t numrows;
+  int numrows;
   // Editor rows
   Row *row;
   // Dirty flag indicates if buffer has changes not yet saved
@@ -227,10 +223,10 @@ EditorConfig E;
 
 typedef struct {
   char *b;
-  uint32_t len;
+  int len;
 } AppendBuffer;
 
-/*** util ***/
+/*** utils ***/
 
 void die(const char *s) {
   write(STDOUT_FILENO, CLEAR_SCREEN, CLEAR_SCREEN_SZ);
@@ -243,6 +239,12 @@ void die(const char *s) {
 void handleResize(int sig) {
   UNUSED(sig);
   E.screen_resized = 1;
+}
+
+int getCharFamily(char c) {
+  return (isalnum((c)) || (c) == '_') ? CHAR_FAMILY_WORDS
+         : (isspace((c)))             ? CHAR_FAMILY_SPACES
+                                      : CHAR_FAMILY_OTHERS;
 }
 
 /*** terminal ***/
@@ -388,13 +390,13 @@ int editorReadKey(void) {
   }
 }
 
-int getCursorPosition(uint16_t *rows, uint16_t *cols) {
+int getCursorPosition(int *rows, int *cols) {
   // Avoid unused rows, cols
   UNUSED(rows);
   UNUSED(cols);
 
   char buf[32];
-  uint16_t i = 0;
+  unsigned long i = 0;
 
   if (write(STDOUT_FILENO, GET_CURSOR, GET_CURSOR_SZ) != GET_CURSOR_SZ)
     return -1;
@@ -413,13 +415,13 @@ int getCursorPosition(uint16_t *rows, uint16_t *cols) {
 
   if (buf[0] != '\x1b' || buf[1] != '[')
     return -1;
-  if (sscanf(&buf[2], "%hd;%hd", rows, cols) != 2)
+  if (sscanf(&buf[2], "%d;%d", rows, cols) != 2)
     return -1;
 
   return 0;
 }
 
-int getWindowSize(uint16_t *rows, uint16_t *cols) {
+int getWindowSize(int *rows, int *cols) {
   struct winsize ws;
 
   // Get the size of the terminals on most systems
@@ -473,12 +475,12 @@ void updateScreenSize(void) {
 
 /*** row operations ***/
 
-int editorRowCxToRx(Row *row, uint32_t cx) {
+int editorRowCxToRx(Row *row, int cx) {
   int rx = 0;
 
   // Rendered cursor x-position needs to advance according to chosen rendered
   // spaces for tab, for each tab in the line so far
-  for (uint32_t j = 0; j < cx; j++) {
+  for (int j = 0; j < cx; j++) {
     if (row->chars[j] == '\t') {
       rx += (DITTO_TAB_STOP - 1) - (rx % DITTO_TAB_STOP);
     }
@@ -491,7 +493,7 @@ int editorRowCxToRx(Row *row, uint32_t cx) {
 void editorUpdateRow(Row *row) {
   int tabs = 0;
 
-  for (uint32_t j = 0; j < row->size; j++) {
+  for (int j = 0; j < row->size; j++) {
     if (row->chars[j] == '\t')
       tabs++;
   }
@@ -500,7 +502,7 @@ void editorUpdateRow(Row *row) {
   row->render = dmalloc(row->size + tabs * (DITTO_TAB_STOP - 1) + 1);
 
   int idx = 0;
-  for (uint32_t j = 0; j < row->size; j++) {
+  for (int j = 0; j < row->size; j++) {
     // Tabs rendering
     if (row->chars[j] == '\t') {
       row->render[idx++] = ' ';
@@ -515,7 +517,7 @@ void editorUpdateRow(Row *row) {
   row->rsize = idx;
 }
 
-void editorInsertRow(uint32_t at, char *s, size_t len) {
+void editorInsertRow(int at, char *s, size_t len) {
   if (at < 0 || at > E.numrows)
     return;
 
@@ -540,7 +542,7 @@ void editorFreeRow(Row *row) {
   dfree(row->chars);
 }
 
-void editorDeleteRow(uint32_t at) {
+void editorDeleteRow(int at) {
   if (at < 0 || at >= E.numrows)
     return;
   editorFreeRow(&E.row[at]);
@@ -549,7 +551,7 @@ void editorDeleteRow(uint32_t at) {
   E.dirty++;
 }
 
-void editorRowInsertChar(Row *row, uint32_t at, int c) {
+void editorRowInsertChar(Row *row, int at, int c) {
   if (at < 0 || at > row->size)
     at = row->size;
   // Make space for 1 char + NULL terminator
@@ -603,7 +605,7 @@ void editorInsertNewline(void) {
   E.cx = 0;
 }
 
-void editorRowDeleteChar(Row *row, uint32_t at) {
+void editorRowDeleteChar(Row *row, int at) {
   if (at < 0 || at >= row->size)
     return;
   memmove(&row->chars[at], &row->chars[at + 1], row->size - at);
@@ -641,14 +643,14 @@ void editorDeleteChar(void) {
 
 char *editorRowsToString(int *buflen) {
   int totlen = 0;
-  for (uint32_t j = 0; j < E.numrows; j++) {
+  for (int j = 0; j < E.numrows; j++) {
     totlen += E.row[j].size + 1;
   }
   *buflen = totlen;
 
   char *buf = dmalloc(totlen);
   char *p = buf;
-  for (uint32_t j = 0; j < E.numrows; j++) {
+  for (int j = 0; j < E.numrows; j++) {
     memcpy(p, E.row[j].chars, E.row[j].size);
     p += E.row[j].size;
     *p = '\n';
@@ -717,7 +719,7 @@ int editorSave(void) {
 
 /*** append buffer ***/
 
-void abAppend(AppendBuffer *ab, const char *s, uint32_t len) {
+void abAppend(AppendBuffer *ab, const char *s, int len) {
   char *new = drealloc(ab->b, ab->len + len);
 
   if (new == NULL)
@@ -772,7 +774,7 @@ void editorScroll(void) {
 
 void editorDrawRows(AppendBuffer *ab) {
   for (int y = 0; y < E.screenrows; y++) {
-    uint16_t filerow = y + E.rowoff;
+    int filerow = y + E.rowoff;
 
     // Print the line number
     if (DITTO_LINENO_ENABLED && filerow < E.numrows) {
@@ -1041,7 +1043,7 @@ void editorMoveCursor(int key) {
 
   // Go to first printable character in the current line
   case KEY_I: {
-    uint16_t p;
+    int p;
     for (p = 0; p < row->size && isspace(row->chars[p]); p++)
       ;
     E.cx = p;
@@ -1058,52 +1060,62 @@ void editorMoveCursor(int key) {
     // 1. On a space -> go to the end of it (we could be already there and next
     // char is start of a word) and then to the end of word
     while (E.cx < row->size - 1 &&
-           GET_CHAR_FAMILY(row->chars[E.cx]) == CHAR_FAMILY_SPACES)
+           getCharFamily(row->chars[E.cx]) == CHAR_FAMILY_SPACES) {
       E.cx++;
+    }
 
-    if (E.cx >= row->size - 2)
+    if (E.cx >= row->size - 2) {
       break;
+    }
 
     // 2. At the end of a word already (current char != next char) -> go to next
     // char (check boundary) and then skip spaces and go to the end of next word
-    int family = GET_CHAR_FAMILY(row->chars[E.cx]);
-    int nextfamily = GET_CHAR_FAMILY(row->chars[E.cx + 1]);
+    int family = getCharFamily(row->chars[E.cx]);
+    int nextfamily = getCharFamily(row->chars[E.cx + 1]);
 
     if (nextfamily != family) {
       // Go to next word, whatever it is
       E.cx++;
       // Go to the end of it, or EOL
       while (E.cx + 1 < row->size &&
-             GET_CHAR_FAMILY(row->chars[E.cx + 1]) == nextfamily)
+             getCharFamily(row->chars[E.cx + 1]) == nextfamily) {
         E.cx++;
+      }
       // If it was spaces, continue
       if (nextfamily == CHAR_FAMILY_SPACES) {
         if (E.cx + 1 >= row->size)
           break;
-        nextfamily = GET_CHAR_FAMILY(row->chars[E.cx + 1]);
+        nextfamily = getCharFamily(row->chars[E.cx + 1]);
         while (E.cx + 1 < row->size &&
-               GET_CHAR_FAMILY(row->chars[E.cx + 1]) == CHAR_FAMILY_SPACES)
+               getCharFamily(row->chars[E.cx + 1]) == CHAR_FAMILY_SPACES) {
+
           E.cx++;
+        }
       }
       break;
     }
 
     // 3. Inside a word -> go to the end of it
-    while (E.cx + 1 < row->size &&
-           GET_CHAR_FAMILY(row->chars[E.cx + 1]) == family)
+    while (E.cx < row->size - 2 &&
+           getCharFamily(row->chars[E.cx + 1]) == family) {
       E.cx++;
+    }
+
+    // Fix inconsistencies
+    if (E.cx >= row->size)
+      E.cx = row->size - 1;
 
     break;
   }
 
   // Move to the start of next word
   case KEY_w: {
-    uint16_t p;
-    int old = GET_CHAR_FAMILY(row->chars[E.cx]);
+    int p;
+    int old = getCharFamily(row->chars[E.cx]);
 
     for (p = E.cx + 1; p < row->size; p++) {
       char c = (row->chars[p]);
-      int new = GET_CHAR_FAMILY(c);
+      int new = getCharFamily(c);
       if (old != new && new != CHAR_FAMILY_SPACES) {
         E.cx = p;
         break;
