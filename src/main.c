@@ -91,13 +91,13 @@
 
 #define ABUF_INIT {NULL, 0}
 
-#define WORD_TYPE_WORDS 0
-#define WORD_TYPE_SPACES 1
-#define WORD_TYPE_OTHERS 2
-#define GET_WORD_TYPE(c)                                                       \
-  (isalnum((c)) || (c) == '_') ? WORD_TYPE_WORDS                               \
-  : (isspace((c)))             ? WORD_TYPE_SPACES                              \
-                               : WORD_TYPE_OTHERS
+#define CHAR_FAMILY_WORDS 0
+#define CHAR_FAMILY_SPACES 1
+#define CHAR_FAMILY_OTHERS 2
+#define GET_CHAR_FAMILY(c)                                                     \
+  (isalnum((c)) || (c) == '_') ? CHAR_FAMILY_WORDS                             \
+  : (isspace((c)))             ? CHAR_FAMILY_SPACES                            \
+                               : CHAR_FAMILY_OTHERS
 
 /*** prototypes ***/
 
@@ -122,6 +122,7 @@ enum editorCommands {
 enum keys {
   KEY_ESC = 27,
   KEY_COLON = 58,
+  KEY_0 = '0',
   KEY_A = 'A',
   KEY_D = 'D',
   KEY_G = 'G',
@@ -1005,6 +1006,10 @@ void editorMoveCursor(int key) {
   Row *row = (E.cy >= E.numrows) ? NULL : &E.row[E.cy];
 
   switch (key) {
+  case KEY_0:
+    E.cx = 0;
+    break;
+
   case ARROW_DOWN:
   case KEY_j:
     if (E.cy < E.numrows - 1) {
@@ -1043,14 +1048,63 @@ void editorMoveCursor(int key) {
     break;
   }
 
+  // Move to the end of next word
+  case KEY_e: {
+
+    // 0. EOL -> exit
+    if (E.cx >= row->size - 1)
+      break;
+
+    // 1. On a space -> go to the end of it (we could be already there and next
+    // char is start of a word) and then to the end of word
+    while (E.cx < row->size - 1 &&
+           GET_CHAR_FAMILY(row->chars[E.cx]) == CHAR_FAMILY_SPACES)
+      E.cx++;
+
+    if (E.cx >= row->size - 2)
+      break;
+
+    // 2. At the end of a word already (current char != next char) -> go to next
+    // char (check boundary) and then skip spaces and go to the end of next word
+    int family = GET_CHAR_FAMILY(row->chars[E.cx]);
+    int nextfamily = GET_CHAR_FAMILY(row->chars[E.cx + 1]);
+
+    if (nextfamily != family) {
+      // Go to next word, whatever it is
+      E.cx++;
+      // Go to the end of it, or EOL
+      while (E.cx + 1 < row->size &&
+             GET_CHAR_FAMILY(row->chars[E.cx + 1]) == nextfamily)
+        E.cx++;
+      // If it was spaces, continue
+      if (nextfamily == CHAR_FAMILY_SPACES) {
+        if (E.cx + 1 >= row->size)
+          break;
+        nextfamily = GET_CHAR_FAMILY(row->chars[E.cx + 1]);
+        while (E.cx + 1 < row->size &&
+               GET_CHAR_FAMILY(row->chars[E.cx + 1]) == CHAR_FAMILY_SPACES)
+          E.cx++;
+      }
+      break;
+    }
+
+    // 3. Inside a word -> go to the end of it
+    while (E.cx + 1 < row->size &&
+           GET_CHAR_FAMILY(row->chars[E.cx + 1]) == family)
+      E.cx++;
+
+    break;
+  }
+
   // Move to the start of next word
   case KEY_w: {
     uint16_t p;
-    int old = GET_WORD_TYPE(row->chars[E.cx]);
+    int old = GET_CHAR_FAMILY(row->chars[E.cx]);
+
     for (p = E.cx + 1; p < row->size; p++) {
       char c = (row->chars[p]);
-      int new = GET_WORD_TYPE(c);
-      if (old != new && new != WORD_TYPE_SPACES) {
+      int new = GET_CHAR_FAMILY(c);
+      if (old != new && new != CHAR_FAMILY_SPACES) {
         E.cx = p;
         break;
       }
@@ -1145,6 +1199,10 @@ void editorProcessKeypressNormalMode(int c) {
     editorMoveCursor(c);
     break;
 
+  case KEY_0:
+    editorMoveCursor(KEY_0);
+    break;
+
   case KEY_a:
     editorMoveCursor(ARROW_RIGHT);
     editorChangeMode(INSERT_MODE);
@@ -1154,6 +1212,10 @@ void editorProcessKeypressNormalMode(int c) {
     editorMoveCursor(KEY_L);
     editorMoveCursor(ARROW_RIGHT);
     editorChangeMode(INSERT_MODE);
+    break;
+
+  case KEY_e:
+    editorMoveCursor(KEY_e);
     break;
 
   case KEY_w:
@@ -1173,6 +1235,7 @@ void editorProcessKeypressNormalMode(int c) {
 
   case KEY_O:
     editorInsertRow(E.cy, "", 0);
+    editorMoveCursor(KEY_0);
     editorChangeMode(INSERT_MODE);
     break;
 
