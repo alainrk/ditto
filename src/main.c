@@ -132,6 +132,7 @@ enum keys {
   KEY_X = 'X',
   KEY_Y = 'Y',
   KEY_a = 'a',
+  KEY_b = 'b',
   KEY_d = 'd',
   KEY_e = 'e',
   KEY_g = 'g',
@@ -1052,59 +1053,63 @@ void editorMoveCursor(int key) {
 
   // Move to the end of next word
   case KEY_e: {
+    // NULL or empty row check
+    if (!row || row->size == 0)
+      break;
 
-    // 0. EOL -> exit
+    // Already at or past end of line
     if (E.cx >= row->size - 1)
       break;
 
-    // 1. On a space -> go to the end of it (we could be already there and next
-    // char is start of a word) and then to the end of word
+    // 1. Skip spaces to find start of next word/token
     while (E.cx < row->size - 1 &&
            getCharFamily(row->chars[E.cx]) == CHAR_FAMILY_SPACES) {
       E.cx++;
     }
 
-    if (E.cx >= row->size - 2) {
+    // Reached end of line while skipping spaces
+    if (E.cx >= row->size - 1)
       break;
-    }
 
-    // 2. At the end of a word already (current char != next char) -> go to next
-    // char (check boundary) and then skip spaces and go to the end of next word
+    // 2. Check if we're at the end of a word (current char != next char family)
     int family = getCharFamily(row->chars[E.cx]);
     int nextfamily = getCharFamily(row->chars[E.cx + 1]);
 
     if (nextfamily != family) {
-      // Go to next word, whatever it is
+      // Move to next character (start of next word/token)
       E.cx++;
-      // Go to the end of it, or EOL
-      while (E.cx + 1 < row->size &&
+      if (E.cx >= row->size - 1)
+        break;
+
+      // Skip spaces if that's what we landed on
+      if (nextfamily == CHAR_FAMILY_SPACES) {
+        while (E.cx < row->size - 1 &&
+               getCharFamily(row->chars[E.cx]) == CHAR_FAMILY_SPACES) {
+          E.cx++;
+        }
+        if (E.cx >= row->size - 1)
+          break;
+        nextfamily = getCharFamily(row->chars[E.cx]);
+      }
+
+      // Move to end of current word
+      while (E.cx < row->size - 1 &&
              getCharFamily(row->chars[E.cx + 1]) == nextfamily) {
         E.cx++;
       }
-      // If it was spaces, continue
-      if (nextfamily == CHAR_FAMILY_SPACES) {
-        if (E.cx + 1 >= row->size)
-          break;
-        nextfamily = getCharFamily(row->chars[E.cx + 1]);
-        while (E.cx + 1 < row->size &&
-               getCharFamily(row->chars[E.cx + 1]) == CHAR_FAMILY_SPACES) {
-
-          E.cx++;
-        }
+    } else {
+      // 3. We're inside a word, move to its end
+      while (E.cx < row->size - 1 &&
+             getCharFamily(row->chars[E.cx + 1]) == family) {
+        E.cx++;
       }
-      break;
     }
 
-    // 3. Inside a word -> go to the end of it
-    while (E.cx < row->size - 2 &&
-           getCharFamily(row->chars[E.cx + 1]) == family) {
-      E.cx++;
-    }
+    break;
+  }
 
-    // Fix inconsistencies
-    if (E.cx >= row->size)
-      E.cx = row->size - 1;
-
+  // Move to the beginning of the previous word
+  case KEY_b: {
     break;
   }
 
@@ -1224,6 +1229,10 @@ void editorProcessKeypressNormalMode(int c) {
     editorMoveCursor(KEY_L);
     editorMoveCursor(ARROW_RIGHT);
     editorChangeMode(INSERT_MODE);
+    break;
+
+  case KEY_b:
+    editorMoveCursor(KEY_b);
     break;
 
   case KEY_e:
